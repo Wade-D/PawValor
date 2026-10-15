@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2020"],
+    "types": [],
+    "noEmit": true
+  },
+  "include": [
+    "assets/scripts/core/**/*.ts",
+    "assets/scripts/config/**/*.ts",
+    "tests/**/*.typecheck.ts"
+  ]
+}

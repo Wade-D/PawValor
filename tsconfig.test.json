@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.core.json",
+  "compilerOptions": {
+    "module": "Node16",
+    "moduleResolution": "Node16",
+    "noEmit": false,
+    "noEmitOnError": true,
+    "rootDir": "./assets/scripts",
+    "outDir": "./.test-build"
+  },
+  "include": [
+    "assets/scripts/core/**/*.ts",
+    "assets/scripts/config/**/*.ts"
+  ]
+}

@@ -3,5 +3,14 @@
   "uuid": "9ff10328-8a8a-4409-95ef-21c59c9db443",
   "creator": {
     "version": "3.8.6"
+  },
+  "scripts": {
+    "typecheck:core": "tsc -p tsconfig.core.json",
+    "check:boundary": "node tools/check-core-boundary.mjs",
+    "test": "tsc -p tsconfig.test.json && node --test tests/*.test.mjs",
+    "verify": "npm run typecheck:core && npm run check:boundary && npm test"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
   }
 }
