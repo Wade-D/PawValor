@@ -26,7 +26,7 @@ npm.cmd run verify
 
 2026-10-17，Creator 3.8.6 + 桌面 Edge 预览：场景引用校验通过、保存干净、没有脚本/import 或浏览器异常；实际按钮点击与键盘移动/R 重开通过。真实适配器加速固定步验证自动攻击、命中、击杀、拾取、Lv.2 封顶、接触死亡、暂停/死亡冻结及五次重开无旧节点。加速验证通过直接提供移动意图驱动适配器，不代表完整人工游玩或触摸手感验收。
 
-`npm.cmd run verify`：243 个测试通过。额外适配器类型检查：`npx.cmd tsc --noEmit -p tsconfig.json --ignoreDeprecations 6.0 --skipLibCheck --lib ES2020,DOM` 通过。2026-10-18 补验了 `R` 长按防重复和失焦后重新按键；失焦时移动输入与重开键锁定均会清空。直接运行未覆盖参数的 Creator 项目 tsc 会出现引擎声明及默认 lib 不匹配错误；正式验收以核心检查与 Creator 实际导入/预览为依据。
+`npm.cmd run verify`：244 个测试通过。额外适配器类型检查：`npx.cmd tsc --noEmit -p tsconfig.json --ignoreDeprecations 6.0 --skipLibCheck --lib ES2020,DOM` 通过。2026-10-18 补验了 `R` 长按防重复和失焦后重新按键；失焦时移动输入与重开键锁定均会清空。直接运行未覆盖参数的 Creator 项目 tsc 会出现引擎声明及默认 lib 不匹配错误；正式验收以核心检查与 Creator 实际导入/预览为依据。
 
 **待手动验证：真实触屏摇杆、多点触摸与目标微信设备。** 桌面截图不作为微信真机 FPS 或性能结论。测试证据放在当前计划忽略目录 `.superpowers/sdd/phase-2-combat-demo/`。
 
