@@ -4,7 +4,12 @@ import { DemoWorld } from '../.test-build/core/demo-world.js';
 import { rainePrototypeConfig } from '../.test-build/config/raine.prototype.js';
 const dt = 1 / 60;
 const zero = { x: 0, y: 0 };
-function world(options = {}) { return new DemoWorld(rainePrototypeConfig, options); }
+function world(options = {}) {
+  const config = structuredClone(rainePrototypeConfig);
+  config.weapons[0].baseDamage = 0;
+  config.weapons[0].attackPowerScaling = 0;
+  return new DemoWorld(config, options);
+}
 function advance(demo, count) { const events = []; for (let i = 0; i < count; i++) events.push(...demo.step(dt, zero)); return events; }
 test('start creates one reproducible seeded edge enemy and reset restores idle', () => {
   const a = world({ seed: 42 }); const b = world({ seed: 42 });

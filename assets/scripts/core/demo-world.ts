@@ -1,15 +1,25 @@
-import type { GameConfig } from './config';
-import type { RandomSource, RunState, Vec2 } from './contracts';
+import type { ProjectileConfig, WeaponConfig, GameConfig } from './config';
+import type { AttackSource, EntityHandle, RandomSource, RunState, Vec2 } from './contracts';
 import { validateGameConfig } from './validate-config';
-import { assertFiniteVector, clampToArena, normalizeIntent } from './demo-geometry';
+import { assertFiniteVector, clampToArena, normalizeIntent, segmentCircleHit } from './demo-geometry';
 import { ARENA_HEIGHT, ARENA_WIDTH, DEFAULT_DEMO_TUNING, FIXED_STEP_SECONDS } from './demo-model';
-import type { DemoEnemySnapshot, DemoEvent, DemoSnapshot, DemoTuning, DemoWorldOptions } from './demo-model';
+import type { DemoEnemySnapshot, DemoOrbSnapshot, DemoEvent, DemoSnapshot, DemoTuning, DemoWorldOptions } from './demo-model';
 
 interface EnemyState {
   handle: { id: number; generation: number };
   position: Vec2;
   health: number;
   nextContactSeconds: number;
+}
+
+interface SwordState {
+  handle: EntityHandle;
+  attacker: EntityHandle;
+  attackId: number;
+  position: Vec2;
+  direction: Vec2;
+  age: number;
+  distance: number;
 }
 
 /** Small deterministic unsigned 32-bit generator for reproducible demo runs. */
@@ -33,6 +43,14 @@ export class DemoWorld {
   private elapsedSeconds = 0;
   private position: Vec2 = { x: 0, y: 0 };
   private generation = 0;
+  private readonly weapon: WeaponConfig;
+  private readonly projectile: ProjectileConfig;
+  private readonly damage: number;
+  private nextAttackSeconds = 0;
+  private nextAttackId = 1;
+  private swords: SwordState[] = [];
+  private orbs: DemoOrbSnapshot[] = [];
+  private kills = 0;
   private readonly maxHealth: number;
   private readonly moveSpeed: number;
   private readonly random: SeededRandom;
@@ -50,6 +68,10 @@ export class DemoWorld {
     if (issues.length) throw new Error(`Invalid config: ${issues.map(issue => `${issue.path}: ${issue.message}`).join('; ')}`);
     const hero = config.heroes.find(item => item.id === 'raine');
     if (!hero) throw new Error('Invalid config: DemoWorld requires hero raine.');
+    const weapon = config.weapons.find(item => item.id === hero.weaponId)!;
+    this.weapon = { ...weapon };
+    this.projectile = { ...config.projectiles.find(item => item.id === weapon.projectileId)! };
+    this.damage = weapon.baseDamage + hero.baseStats.attackPower * weapon.attackPowerScaling;
     this.maxHealth = hero.baseStats.maxHealth;
     this.health = this.maxHealth;
     this.moveSpeed = hero.baseStats.moveSpeed;
@@ -87,6 +109,11 @@ export class DemoWorld {
     this.position = { x: 0, y: 0 };
     this.health = this.maxHealth;
     this.enemies = [];
+    this.swords = [];
+    this.orbs = [];
+    this.kills = 0;
+    this.nextAttackSeconds = 0;
+    this.nextAttackId = 1;
     this.nextEntityId = 2;
     this.nextSpawnSeconds = 0;
     this.random.reset();
@@ -138,7 +165,79 @@ export class DemoWorld {
         return events;
       }
     }
+    this.launchSword(events);
+    this.advanceSwords(dtSeconds, events);
     return events;
+  }
+
+  private source(attackId: number): AttackSource {
+    return { rootAttackId: attackId, sourceKind: 'direct', depth: 0 };
+  }
+
+  private launchSword(events: DemoEvent[]): void {
+    if (this.elapsedSeconds + 1e-10 < this.nextAttackSeconds) return;
+    const candidates = this.enemies.filter(enemy => enemy.health > 0
+      && enemy.handle.generation === this.generation
+      && Math.hypot(enemy.position.x - this.position.x, enemy.position.y - this.position.y) <= this.weapon.range);
+    candidates.sort((a, b) => Math.hypot(a.position.x - this.position.x, a.position.y - this.position.y)
+      - Math.hypot(b.position.x - this.position.x, b.position.y - this.position.y) || a.handle.id - b.handle.id);
+    const target = candidates[0];
+    if (!target) return;
+    const dx = target.position.x - this.position.x;
+    const dy = target.position.y - this.position.y;
+    const length = Math.hypot(dx, dy);
+    const direction = length === 0 ? { x: 1, y: 0 } : { x: dx / length, y: dy / length };
+    const attackId = this.nextAttackId++;
+    const attacker = { id: 1, generation: this.generation };
+    this.swords.push({ handle: { id: this.nextEntityId++, generation: this.generation },
+      attacker, attackId, position: { ...this.position }, direction, age: 0, distance: 0 });
+    this.nextAttackSeconds = this.elapsedSeconds + this.weapon.attackIntervalSeconds;
+    events.push({ type: 'attack', elapsedSeconds: this.elapsedSeconds, attackId,
+      attacker: { ...attacker }, source: this.source(attackId), projectileId: this.projectile.id,
+      origin: { ...this.position }, direction: { ...direction } });
+  }
+
+  private advanceSwords(dt: number, events: DemoEvent[]): void {
+    const remaining: SwordState[] = [];
+    for (const sword of this.swords) {
+      if (sword.attacker.generation !== this.generation || sword.handle.generation !== this.generation) continue;
+      const duration = Math.min(dt, Math.max(0, this.projectile.lifetimeSeconds - sword.age));
+      const travel = Math.min(this.projectile.speed * duration, Math.max(0, this.weapon.range - sword.distance));
+      const end = { x: sword.position.x + sword.direction.x * travel,
+        y: sword.position.y + sword.direction.y * travel };
+      let hit: EnemyState | undefined;
+      let first = Infinity;
+      for (const enemy of this.enemies) {
+        if (enemy.health <= 0 || enemy.handle.generation !== this.generation) continue;
+        const fraction = segmentCircleHit(sword.position, end, enemy.position, this.tuning.enemyRadius);
+        if (fraction !== null && (fraction < first || (fraction === first && enemy.handle.id < hit!.handle.id))) {
+          hit = enemy; first = fraction;
+        }
+      }
+      if (hit) {
+        const target = { ...hit.handle };
+        events.push({ type: 'hit', elapsedSeconds: this.elapsedSeconds, attackId: sword.attackId,
+          attacker: { ...sword.attacker }, target, source: this.source(sword.attackId), damage: this.damage, critical: false });
+        hit.health = Math.max(0, hit.health - this.damage);
+        if (hit.health === 0) {
+          this.enemies = this.enemies.filter(enemy => enemy !== hit);
+          this.kills++;
+          events.push({ type: 'kill', elapsedSeconds: this.elapsedSeconds, attackId: sword.attackId,
+            killer: { ...sword.attacker }, target: { ...target }, source: this.source(sword.attackId) });
+          const orb = { handle: { id: this.nextEntityId++, generation: this.generation },
+            position: { ...hit.position }, value: this.tuning.xpPerOrb };
+          this.orbs.push(orb);
+          events.push({ type: 'xpDrop', elapsedSeconds: this.elapsedSeconds,
+            handle: { ...orb.handle }, position: { ...orb.position }, value: orb.value });
+        }
+        continue;
+      }
+      sword.position = end;
+      sword.age += duration;
+      sword.distance += travel;
+      if (sword.age + 1e-10 < this.projectile.lifetimeSeconds && sword.distance + 1e-10 < this.weapon.range) remaining.push(sword);
+    }
+    this.swords = remaining;
   }
 
   private addEnemy(position: Vec2): EnemyState {
@@ -173,7 +272,9 @@ export class DemoWorld {
       state: this.state, elapsedSeconds: this.elapsedSeconds,
       hero: { handle: { id: 1, generation: this.generation }, position: { ...this.position }, health: this.health, maxHealth: this.maxHealth },
       enemies: this.enemies.map((enemy): DemoEnemySnapshot => ({ handle: { ...enemy.handle }, position: { ...enemy.position }, health: enemy.health })),
-      projectiles: [], orbs: [], level: 1, xp: 0, xpCapped: false, kills: 0,
+      projectiles: this.swords.map(sword => ({ handle: { ...sword.handle }, position: { ...sword.position }, direction: { ...sword.direction } })),
+      orbs: this.orbs.map(orb => ({ handle: { ...orb.handle }, position: { ...orb.position }, value: orb.value })),
+      level: 1, xp: 0, xpCapped: false, kills: this.kills,
     };
   }
 }
