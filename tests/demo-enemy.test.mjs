@@ -57,6 +57,30 @@ test('each enemy deals ten damage with its own one-second cooldown', () => {
   advance(demo, 1); assert.equal(demo.snapshot().hero.health, 70);
   advance(demo, 1); assert.equal(demo.snapshot().hero.health, 60);
 });
+test('edge spawns respect the moving hero position at the moment of spawning', () => {
+  let checkedSpawns = 0;
+  for (let seed = 1; seed <= 12; seed++) {
+    const demo = world({ seed, initialEnemyPositions: [], tuning: { contactDamage: 0 } }); demo.start();
+    for (let step = 0; step < 600; step++) {
+      const events = demo.step(dt, { x: 1, y: 0 });
+      const hero = demo.snapshot().hero.position;
+      for (const event of events.filter(event => event.type === 'enemySpawn')) {
+        assert.ok(hero.x > 9.9, 'hero must be near the right arena edge when a spawn is checked');
+        assert.ok(Math.hypot(event.position.x - hero.x, event.position.y - hero.y) >= 4,
+          `seed ${seed}: spawn must stay four units from the current hero position`);
+        checkedSpawns++;
+      }
+    }
+  }
+  assert.equal(checkedSpawns, 60);
+});
+test('live enemy cap must be a positive integer', () => {
+  for (const maxEnemies of [1.5, 0, -1, NaN, Infinity]) {
+    assert.throws(() => world({ tuning: { maxEnemies } }), /maxEnemies/i);
+  }
+  const demo = world({ tuning: { maxEnemies: 1, contactDamage: 0 } }); demo.start();
+  advance(demo, 240); assert.equal(demo.snapshot().enemies.length, 1);
+});
 test('lethal contact stops immediately and death freezes simulation until reset', () => {
   const demo = world({ initialEnemyPositions: Array.from({ length: 11 }, () => zero) }); demo.start();
   const events = advance(demo, 1);

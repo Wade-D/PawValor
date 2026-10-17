@@ -55,6 +55,9 @@ export class DemoWorld {
     this.moveSpeed = hero.baseStats.moveSpeed;
     this.random = new SeededRandom(options.seed ?? 1);
     this.tuning = { ...DEFAULT_DEMO_TUNING, ...options.tuning };
+    if (!Number.isInteger(this.tuning.maxEnemies) || this.tuning.maxEnemies <= 0) {
+      throw new Error('tuning.maxEnemies must be a positive integer.');
+    }
     for (const [key, value] of Object.entries(this.tuning)) {
       if (!Number.isFinite(value) || value < 0) throw new Error(`tuning.${key} must be finite and non-negative.`);
     }
