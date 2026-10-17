@@ -125,3 +125,34 @@ test('swept collision hits off-axis circles and orders exact ties by lower ID', 
   const hits = of(advance(demo, 1), 'hit');
   assert.equal(hits.length, 1); assert.equal(hits[0].target.id, 2);
 });
+
+test('two already-live swords reaching a lethal enemy in one step emit only one hit kill and drop', () => {
+  function arrange(enemyHealth) {
+    const demo = world([{ x: 7, y: 0 }], config => {
+      config.projectiles[0].speed = 1;
+      config.projectiles[0].lifetimeSeconds = 10;
+    }, { enemyHealth });
+    const launches = of(advance(demo, 49), 'attack');
+    assert.equal(launches.length, 2);
+    assert.equal(demo.snapshot().projectiles.length, 2);
+    // Both existing swords cross the circle's left edge x=6.65 next step.
+    // Keep distinct real launch IDs; no projectile is created in the tested step.
+    for (const sword of demo.swords) sword.position = { x: 6.64, y: 0 };
+    return demo;
+  }
+  // Control proves both swords actually intersect in this fixture when the enemy survives.
+  const control = arrange(100);
+  const controlEvents = control.step(dt, zero);
+  assert.equal(of(controlEvents, 'attack').length, 0);
+  assert.equal(of(controlEvents, 'hit').length, 2);
+  assert.equal(control.snapshot().enemies[0].health, 60);
+  const demo = arrange(20);
+  const events = demo.step(dt, zero);
+  assert.equal(of(events, 'attack').length, 0);
+  assert.deepEqual(events.map(event => event.type), ['hit', 'kill', 'xpDrop']);
+  assert.equal(of(events, 'hit')[0].attackId, 1);
+  assert.deepEqual(demo.snapshot().enemies, []);
+  assert.equal(demo.snapshot().kills, 1);
+  assert.equal(demo.snapshot().orbs.length, 1);
+  assert.equal(demo.snapshot().projectiles.length, 1);
+});
