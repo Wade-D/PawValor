@@ -1,6 +1,7 @@
 import type { ProjectileConfig, WeaponConfig, GameConfig } from './config';
 import type { AttackSource, EntityHandle, RandomSource, RunState, Vec2 } from './contracts';
 import { validateGameConfig } from './validate-config';
+import { applyDemoXp } from './demo-growth';
 import { assertFiniteVector, clampToArena, normalizeIntent, segmentCircleHit } from './demo-geometry';
 import { ARENA_HEIGHT, ARENA_WIDTH, DEFAULT_DEMO_TUNING, FIXED_STEP_SECONDS } from './demo-model';
 import type { DemoEnemySnapshot, DemoOrbSnapshot, DemoEvent, DemoSnapshot, DemoTuning, DemoWorldOptions } from './demo-model';
@@ -51,6 +52,8 @@ export class DemoWorld {
   private swords: SwordState[] = [];
   private orbs: DemoOrbSnapshot[] = [];
   private kills = 0;
+  private level: 1 | 2 = 1;
+  private xp = 0;
   private readonly maxHealth: number;
   private readonly moveSpeed: number;
   private readonly random: SeededRandom;
@@ -83,6 +86,7 @@ export class DemoWorld {
     for (const [key, value] of Object.entries(this.tuning)) {
       if (!Number.isFinite(value) || value < 0) throw new Error(`tuning.${key} must be finite and non-negative.`);
     }
+    if (this.tuning.level2Xp === 0) throw new Error('tuning.level2Xp must be positive.');
     for (const position of options.initialEnemyPositions ?? []) {
       assertFiniteVector(position, 'initialEnemyPositions');
       if (Math.abs(position.x) > ARENA_WIDTH / 2 || Math.abs(position.y) > ARENA_HEIGHT / 2) {
@@ -112,6 +116,8 @@ export class DemoWorld {
     this.swords = [];
     this.orbs = [];
     this.kills = 0;
+    this.level = 1;
+    this.xp = 0;
     this.nextAttackSeconds = 0;
     this.nextAttackId = 1;
     this.nextEntityId = 2;
@@ -167,7 +173,25 @@ export class DemoWorld {
     }
     this.launchSword(events);
     this.advanceSwords(dtSeconds, events);
+    this.pickupOrbs(events);
     return events;
+  }
+
+  private pickupOrbs(events: DemoEvent[]): void {
+    const remaining: DemoOrbSnapshot[] = [];
+    for (const orb of this.orbs) {
+      if (orb.handle.generation !== this.generation
+        || Math.hypot(orb.position.x - this.position.x, orb.position.y - this.position.y) > this.tuning.pickupRadius) {
+        remaining.push(orb);
+        continue;
+      }
+      const progress = applyDemoXp({ level: this.level, xp: this.xp }, orb.value, this.tuning.level2Xp);
+      this.level = progress.level;
+      this.xp = progress.xp;
+      events.push({ type: 'xpPickup', elapsedSeconds: this.elapsedSeconds, handle: { ...orb.handle }, value: orb.value });
+      if (progress.leveledUp) events.push({ type: 'levelUp', elapsedSeconds: this.elapsedSeconds, level: 2 });
+    }
+    this.orbs = remaining;
   }
 
   private source(attackId: number): AttackSource {
@@ -274,7 +298,7 @@ export class DemoWorld {
       enemies: this.enemies.map((enemy): DemoEnemySnapshot => ({ handle: { ...enemy.handle }, position: { ...enemy.position }, health: enemy.health })),
       projectiles: this.swords.map(sword => ({ handle: { ...sword.handle }, position: { ...sword.position }, direction: { ...sword.direction } })),
       orbs: this.orbs.map(orb => ({ handle: { ...orb.handle }, position: { ...orb.position }, value: orb.value })),
-      level: 1, xp: 0, xpCapped: false, kills: this.kills,
+      level: this.level, xp: this.xp, xpCapped: this.level === 2, kills: this.kills,
     };
   }
 }
