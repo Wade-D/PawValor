@@ -22,7 +22,7 @@ export class DemoInput extends Component {
     input.on(Input.EventType.TOUCH_MOVE, this.touchMove, this);
     input.on(Input.EventType.TOUCH_END, this.touchEnd, this);
     input.on(Input.EventType.TOUCH_CANCEL, this.touchCancel, this);
-    game.on(Game.EVENT_HIDE, this.clear, this);
+    game.on(Game.EVENT_HIDE, this.resetOnFocusLoss, this);
     if (typeof window !== 'undefined') window.addEventListener('blur', this.blur);
   }
 
@@ -46,11 +46,17 @@ export class DemoInput extends Component {
     input.off(Input.EventType.TOUCH_MOVE, this.touchMove, this);
     input.off(Input.EventType.TOUCH_END, this.touchEnd, this);
     input.off(Input.EventType.TOUCH_CANCEL, this.touchCancel, this);
-    game.off(Game.EVENT_HIDE, this.clear, this);
+    game.off(Game.EVENT_HIDE, this.resetOnFocusLoss, this);
     if (typeof window !== 'undefined') window.removeEventListener('blur', this.blur);
   }
 
-  private readonly blur = (): void => this.clear();
+  private resetOnFocusLoss(): void {
+    this.clear();
+    // Key-up may occur outside the preview and never reach the input system.
+    this.restartHeld = false;
+  }
+
+  private readonly blur = (): void => this.resetOnFocusLoss();
 
   private keyDown(event: EventKeyboard): void {
     if (event.keyCode === KeyCode.KEY_R) {

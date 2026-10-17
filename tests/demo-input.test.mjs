@@ -37,3 +37,18 @@ test('held R restarts once despite synchronous movement clear; release rearms it
   input.keyDown({ keyCode: KeyCode.KEY_R });
   assert.equal(restarts, 2);
 });
+
+test('focus loss releases restart latch when keyup happens outside the preview', () => {
+  const input = new exports.DemoInput();
+  let restarts = 0;
+  input.onRestart = () => { restarts++; input.clear(); };
+  input.keyDown({ keyCode: KeyCode.KEY_R });
+  input.keyDown({ keyCode: KeyCode.KEY_D });
+  input.blur();
+  assert.equal(input.movement.x, 0);
+  // The physical key was released outside the preview, so there is no keyUp.
+  input.keyDown({ keyCode: KeyCode.KEY_R });
+  assert.equal(restarts, 2);
+  input.keyDown({ keyCode: KeyCode.KEY_R });
+  assert.equal(restarts, 2);
+});
