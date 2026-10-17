@@ -1,38 +1,41 @@
-# Pawvalor 客户端：阶段 1
+# Pawvalor 客户端：阶段 2 战斗 Demo
 
-使用 **Cocos Creator 3.8.6** 打开此 `client/` 目录。Git 根目录也在 `client/`；公共设计文档位于上一级的 `docs/`，需要单独纳入项目文档版本管理。
+使用 **Cocos Creator 3.8.6** 打开此 `client/` 目录。Git 根目录在 `client/`；批准设计位于上一级 `docs/superpowers/specs/2026-10-16-phase-2-combat-demo-design.md`。
 
 ## 安装与检查
-
-安装 Node.js/npm 后，在 `client/` 执行（Windows PowerShell）：
 
 ```powershell
 npm.cmd ci
 npm.cmd run verify
 ```
 
-`verify` 依次执行纯核心类型检查、核心/配置依赖边界检查和全部 Node 测试。测试编译输出位于被忽略的 `.test-build/`。主 `tsconfig.json` 仍继承 Creator 生成的配置；Node 检查不替代真实编辑器导入及预览验收。
+`verify` 执行纯核心类型检查、依赖边界检查及全部 Node 测试，输出位于忽略的 `.test-build/`。核心与配置不依赖 Cocos、微信、DOM 或 Node API。
 
-## 启动诊断场景
+## 战斗预览
 
-1. 在 Creator 3.8.6 中打开 `client/`，等待资源和脚本导入。
-2. 在资源管理器打开 `assets/scenes/Bootstrap.scene`。
-3. 运行当前场景预览。场景中的 `Bootstrap` 组件已绑定 `Canvas/ConfigStatus` 的 Label。
+1. 等待 Creator 导入，打开 `assets/scenes/CombatDemo.scene`，运行当前场景浏览器预览。
+2. 点击 **Start** 开始；**Pause / Resume / Restart** 暂停、继续、重开。
+3. **WASD / 方向键** 移动，**R** 重开。左下区域触摸并拖动提供虚拟摇杆方向；活动触摸优先于键盘，失焦/触摸取消清空输入。
+4. 蓝色圆为雷恩、红色圆为敌人、金色短条为剑气、绿色圆为经验。靠近经验球拾取，累计 5 点达到 Lv.2 Demo 上限。死亡后重开。
 
-`Bootstrap.onLoad` 校验 `rainePrototypeConfig`。成功时画面和控制台显示 **Pawvalor：配置校验通过（测试参数）**；失败时画面显示错误数量，控制台通过 `console.error` 输出全部 `issues`，包含错误代码、字段路径和说明。该入口只执行配置诊断，不启动战斗。若手动改动场景后 Label 绑定丢失，控制台会报告 `Bootstrap.statusLabel 未绑定`。
+1280×720 设计分辨率，64 像素/世界单位；核心固定 1/60 秒，每帧最多补进 5 步，超出时间丢弃并输出诊断。HUD 显示生命、等级、经验、击杀、模拟时间和状态。战斗开始前校验配置；失败时显示并记录全部错误，禁止启动。
 
-场景及 `.meta` 应由编辑器或 Cocos MCP 创建、修改和保存；提交自动生成的 `.meta` 以保留资源 UUID。
+`CombatDemo` Inspector 绑定 World、Hud、Status、Joystick 和 Knob，四个按钮绑定对应方法。图形节点由运行时生成，按实体 generation/ID 同步并在重开/销毁时清理。场景与 `.meta` 只通过 Creator/MCP 修改，保留生成的 UUID。
 
-## 本阶段边界
+## 已验证与待测
 
-当前交付包括纯 TypeScript 契约、构筑状态结构、可序列化配置、引用/数值/固定规则校验、雷恩 prototype 配置、自动测试与最小启动诊断。`core/` 不依赖 Cocos、微信、DOM 或 Node 专用 API；只有 `cocos/` 适配层引用 `cc`。
+2026-10-17，Creator 3.8.6 + 桌面 Edge 预览：场景引用校验通过、保存干净、没有脚本/import 或浏览器异常；实际按钮点击与键盘移动/R 重开通过。真实适配器加速固定步验证自动攻击、命中、击杀、拾取、Lv.2 封顶、接触死亡、暂停/死亡冻结及五次重开无旧节点。加速验证通过直接提供移动意图驱动适配器，不代表完整人工游玩或触摸手感验收。
 
-所有配置数值均为测试参数，未验证平衡与真机性能。当前没有移动、索敌、攻击、碰撞、伤害、抽卡算法、升级状态机、完整进化技能、组合调度或服务端实现。单英雄绑定武器、远程自动攻击是后续实现约束；普通三选一与固定 Lv.3 选路线、Lv.7 选分支、Lv.11 自动终极必须分别处理。
+`npm.cmd run verify`：241 个测试通过。额外适配器类型检查：`npx.cmd tsc --noEmit -p tsconfig.json --ignoreDeprecations 6.0 --skipLibCheck --lib ES2020,DOM` 通过。直接运行未覆盖参数的 Creator 项目 tsc 会出现引擎声明及默认 lib 不匹配错误；正式验收以核心检查与 Creator 实际导入/预览为依据。
 
-阶段 3 接入真实构筑前仍需锁定：
+**待手动验证：真实触屏摇杆、多点触摸与目标微信设备。** 桌面截图不作为微信真机 FPS 或性能结论。测试证据放在当前计划忽略目录 `.superpowers/sdd/phase-2-combat-demo/`。
 
-- 固有元素是否占附魔槽，附魔是否占副机制槽；同属性共鸣的计槽、强化与替换规则。
-- 普通候选不足三张时的兜底奖励、数值与上限。
-- 属性合并顺序、附加弹体适用范围、组合前置表及经验曲线。
+## 阶段 1 诊断入口
 
-示例 `elementPolicy` 和测试组合仅用于结构验证，不代表正式默认规则。完整约束见上一级 `docs/design/phase-1-foundation.md`。
+`assets/scenes/Bootstrap.scene` 保持配置诊断用途，不启动战斗。预览显示并输出 **Pawvalor：配置校验通过（测试参数）**；该回归检查已通过。失败时控制台包含错误代码、路径和说明。
+
+## 原型边界
+
+当前只实现雷恩移动、自动直线剑气、敌人追击/接触伤害、击杀经验和 Lv.2 封顶。所有数值为测试参数；色块不代表正式伪 45° 美术。未实现暴击、天赋、路线/分支/终极、元素、组合、Boss、正式地图、服务端或上线资源。Lv.3 不会进入。
+
+阶段 3 前仍需确定元素占槽策略、普通候选不足三张的兜底、属性合并及经验曲线；示例 `elementPolicy` 不代表正式默认规则。
