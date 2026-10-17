@@ -14,7 +14,8 @@ test('seeded random source reproduces its sequence after reset', () => {
   assert.ok(new Set(first).size > 1);
   random.reset();
   assert.deepEqual(Array.from({ length: 8 }, () => random.next()), first);
-  assert.notDeepEqual(Array.from({ length: 8 }, () => new module.SeededRandom(43).next()), first);
+  const otherRandom = new module.SeededRandom(43);
+  assert.notDeepEqual(Array.from({ length: 8 }, () => otherRandom.next()), first);
 });
 function world(config = rainePrototypeConfig, options) {
   assert.equal(typeof module.DemoWorld, 'function');
