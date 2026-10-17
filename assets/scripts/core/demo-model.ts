@@ -5,7 +5,7 @@ export const PIXELS_PER_UNIT = 64;
 export const ARENA_WIDTH = 20;
 export const ARENA_HEIGHT = 11.25;
 
-/** Prototype-only parameters; these do not alter the formal GameConfig. */
+/** 仅供原型使用的参数，不修改正式 GameConfig。 */
 export interface DemoTuning {
   enemyHealth: number;
   enemySpeed: number;

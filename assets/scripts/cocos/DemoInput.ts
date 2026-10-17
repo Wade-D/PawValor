@@ -2,7 +2,7 @@ import { _decorator, Component, EventKeyboard, EventTouch, game, Game, input, In
 
 const { ccclass } = _decorator;
 
-/** Input intent only. CombatDemo owns simulation, pause state, and restart. */
+/** 仅负责输入意图；模拟、暂停状态和重开由 CombatDemo 管理。 */
 @ccclass('DemoInput')
 export class DemoInput extends Component {
   readonly movement = new Vec2();
@@ -52,7 +52,7 @@ export class DemoInput extends Component {
 
   private resetOnFocusLoss(): void {
     this.clear();
-    // Key-up may occur outside the preview and never reach the input system.
+    // 松键可能发生在预览窗口外，输入系统无法收到该事件。
     this.restartHeld = false;
   }
 
@@ -60,7 +60,7 @@ export class DemoInput extends Component {
 
   private keyDown(event: EventKeyboard): void {
     if (event.keyCode === KeyCode.KEY_R) {
-      // Restart clears movement synchronously; keep this latch until release.
+      // 重开会同步清空移动输入；按键松开前保持锁定。
       if (!this.restartHeld) {
         this.restartHeld = true;
         this.onRestart?.();

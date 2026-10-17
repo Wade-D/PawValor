@@ -7,7 +7,7 @@ export function assertFiniteVector(value: Vec2, name = 'input'): void {
   }
 }
 
-/** Preserve analog magnitude below one; avoid overflow for large finite inputs. */
+/** 保留小于一的模拟摇杆幅度，并避免有限大数输入导致溢出。 */
 export function normalizeIntent(input: Vec2): Vec2 {
   assertFiniteVector(input);
   const scale = Math.max(Math.abs(input.x), Math.abs(input.y));
@@ -27,7 +27,7 @@ export function clampToArena(position: Vec2): Vec2 {
   };
 }
 
-/** First segment fraction touching the closed circle, including initial overlap. */
+/** 返回线段首次接触闭圆的比例，包含起点已重叠的情况。 */
 export function segmentCircleHit(start: Vec2, end: Vec2, center: Vec2, radius: number): number | null {
   assertFiniteVector(start, 'start'); assertFiniteVector(end, 'end'); assertFiniteVector(center, 'center');
   if (!Number.isFinite(radius) || radius < 0) throw new Error('radius must be finite and non-negative.');

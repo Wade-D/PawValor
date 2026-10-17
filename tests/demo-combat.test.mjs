@@ -55,7 +55,7 @@ test('off-axis radius hit kills once and drops one isolated orb at death positio
   const demo = world([{ x: 3, y: 0.34 }, { x: 6, y: 0 }], config => {
     config.projectiles[0].speed = 300;
   }, { enemyHealth: 20 });
-  // Nearest aim is off-axis; the hit is still a swept circle intersection.
+  // 最近目标不在轴线上，命中仍通过扫掠圆相交判定。
   const events = advance(demo, 48);
   assert.equal(of(events, 'kill').length, 1); assert.equal(of(events, 'xpDrop').length, 1);
   assert.equal(demo.snapshot().kills, 1);
@@ -64,9 +64,9 @@ test('off-axis radius hit kills once and drops one isolated orb at death positio
   orb.position.x = 999; assert.equal(demo.snapshot().orbs[0].position.x, 3);
 });
 test('projectiles clip the final sweep at lifetime and range before a same-ray enemy', () => {
-  // Enemy circle entry is just beyond each boundary but inside an unclipped final step:
-  // lifetime: 1.64 - 0.35 = 1.29 > 12 * 0.105 = 1.26 (unclipped end 1.4).
-  // range: 8.5 - 0.35 = 8.15 > 8 (unclipped end 10).
+  // 敌人圆的入口刚好超过各自边界，但仍处于未经裁剪的最后一步内：
+  // 寿命：1.64 - 0.35 = 1.29 > 12 * 0.105 = 1.26（未经裁剪的终点为 1.4）。
+  // 射程：8.5 - 0.35 = 8.15 > 8（未经裁剪的终点为 10）。
   for (const [speed, lifetime, steps, obstacleX] of [[12, 0.105, 7, 1.64], [150, 1, 4, 8.5]]) {
     const demo = world([{ x: 7, y: 0 }, { x: obstacleX, y: 0 }], config => {
       config.projectiles[0].speed = speed; config.projectiles[0].lifetimeSeconds = lifetime;
@@ -94,7 +94,7 @@ test('a surviving in-range target receives attacks at actual 0.8-second interval
 });
 test('generation mismatch rejects stale hit and reset removes old attacks', () => {
   const demo = world([{ x: 2, y: 0 }]); advance(demo, 1);
-  // Simulate a recycled target between launch and impact without adding test APIs.
+  // 不增加测试专用接口，直接模拟发射后、命中前目标被复用。
   demo.enemies[0].handle.generation++;
   assert.equal(of(advance(demo, 10), 'hit').length, 0);
   assert.equal(demo.snapshot().enemies[0].health, 30);
@@ -135,12 +135,12 @@ test('two already-live swords reaching a lethal enemy in one step emit only one 
     const launches = of(advance(demo, 49), 'attack');
     assert.equal(launches.length, 2);
     assert.equal(demo.snapshot().projectiles.length, 2);
-    // Both existing swords cross the circle's left edge x=6.65 next step.
-    // Keep distinct real launch IDs; no projectile is created in the tested step.
+    // 两道现存剑气将在下一步穿过圆的左边界 x=6.65。
+    // 保留真实且不同的发射 ID；被测步骤不会生成新剑气。
     for (const sword of demo.swords) sword.position = { x: 6.64, y: 0 };
     return demo;
   }
-  // Control proves both swords actually intersect in this fixture when the enemy survives.
+  // 对照组证明敌人存活时，两道剑气在此场景中都会发生相交。
   const control = arrange(100);
   const controlEvents = control.step(dt, zero);
   assert.equal(of(controlEvents, 'attack').length, 0);

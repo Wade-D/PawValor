@@ -1,7 +1,7 @@
 const STEP_SECONDS = 1 / 60;
 const MAX_STEPS = 5;
 
-/** Bounds catch-up work; the caller resets on pause, resume, and restart. */
+/** 限制追帧工作量；调用方在暂停、继续和重开时复位。 */
 export class FixedStepDriver {
   private accumulator = 0;
   private totalDroppedSeconds = 0;
@@ -22,7 +22,7 @@ export class FixedStepDriver {
       step(STEP_SECONDS);
     }
     let droppedSeconds = 0;
-    // Repeated subtraction can leave rounding dust after an exact five steps.
+    // 恰好执行五步后，重复减法可能留下浮点舍入误差。
     if (this.accumulator < Number.EPSILON) this.accumulator = 0;
     if (steps === MAX_STEPS && this.accumulator > 0) {
       droppedSeconds = this.accumulator;

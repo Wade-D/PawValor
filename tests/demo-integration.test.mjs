@@ -50,14 +50,14 @@ test('real kills and pickups emit one level-up and consume orbs after the cap', 
 
 test('pause freezes all state; lethal contact skips attacks, existing hits and pickups then freezes', () => {
   const demo = make([{ x: 0.5, y: 0 }, { x: 4, y: 0 }]);
-  advance(demo, 1); // First enemy drops an orb outside pickup radius.
+  advance(demo, 1); // 第一只敌人掉落的经验球位于拾取范围外。
   demo.pause(); const paused = demo.snapshot();
   assert.deepEqual(advance(demo, 100, { x: 1, y: 0 }), []);
   assert.deepEqual(demo.snapshot(), paused); demo.resume();
-  advance(demo, 48); // Launch a sword at the second enemy.
+  advance(demo, 48); // 向第二只敌人发射一道剑气。
   assert.equal(demo.snapshot().projectiles.length, 1);
   demo.enemies[0].position = { x: 0.5, y: 0 };
-  demo.tuning.contactDamage = 100; // Arrange lethal contact without production test APIs.
+  demo.tuning.contactDamage = 100; // 不添加正式代码中的测试接口，直接布置致命接触。
   const events = demo.step(dt, { x: 1, y: 0 });
   assert.deepEqual(events.map(event => event.type), ['heroDamaged', 'runEnded']);
   const ended = demo.snapshot();

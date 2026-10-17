@@ -359,7 +359,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 366.421875,
+      "width": 425.49609375,
       "height": 50.4
     },
     "_anchorPoint": {
@@ -389,7 +389,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "HP 100/100   Lv.1   XP 0/5   Kills 0",
+    "_string": "生命 100/100   等级 1   经验 0/5   击杀 0",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 24,
@@ -491,7 +491,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 189.5029296875,
+      "width": 202.876953125,
       "height": 50.4
     },
     "_anchorPoint": {
@@ -521,7 +521,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "IDLE — press Start",
+    "_string": "待开始 — 点击“开始”",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 22,
@@ -623,7 +623,7 @@
     "__prefab": null,
     "_contentSize": {
       "__type__": "cc.Size",
-      "width": 697.5703125,
+      "width": 606.3486328125,
       "height": 50.4
     },
     "_anchorPoint": {
@@ -653,7 +653,7 @@
       "b": 255,
       "a": 255
     },
-    "_string": "WASD / Arrows: move   R: restart   Blue: Raine   Red: enemy   Gold: sword   Green: XP",
+    "_string": "WASD / 方向键：移动   R：重开   蓝：雷恩   红：敌人   金：剑气   绿：经验",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 18,
@@ -978,7 +978,7 @@
       "b": 0,
       "a": 255
     },
-    "_string": "Start",
+    "_string": "开始",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 22,
@@ -1304,7 +1304,7 @@
       "b": 0,
       "a": 255
     },
-    "_string": "Pause",
+    "_string": "暂停",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 22,
@@ -1630,7 +1630,7 @@
       "b": 0,
       "a": 255
     },
-    "_string": "Resume",
+    "_string": "继续",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 22,
@@ -1956,7 +1956,7 @@
       "b": 0,
       "a": 255
     },
-    "_string": "Restart",
+    "_string": "重开",
     "_horizontalAlign": 1,
     "_verticalAlign": 1,
     "_actualFontSize": 22,

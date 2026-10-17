@@ -23,7 +23,7 @@ interface SwordState {
   distance: number;
 }
 
-/** Small deterministic unsigned 32-bit generator for reproducible demo runs. */
+/** 用于复现试玩战局的小型确定性 32 位无符号随机数生成器。 */
 export class SeededRandom implements RandomSource {
   private state: number;
   constructor(private readonly seed: number) {
@@ -138,7 +138,7 @@ export class DemoWorld {
     });
     this.elapsedSeconds += dtSeconds;
     const events: DemoEvent[] = [];
-    // Consume cadence even while capped: no stored burst when a slot becomes free.
+    // 达到数量上限时也推进生成节拍，避免空位出现后集中补刷。
     if (this.elapsedSeconds + 1e-10 >= this.nextSpawnSeconds) {
       this.nextSpawnSeconds = this.elapsedSeconds + this.tuning.spawnIntervalSeconds;
       if (this.enemies.length < this.tuning.maxEnemies) {
@@ -282,7 +282,7 @@ export class DemoWorld {
         : { x: offset * halfWidth, y: edge === 2 ? -halfHeight : halfHeight };
       if (Math.hypot(position.x - this.position.x, position.y - this.position.y) >= this.tuning.minSpawnDistance) return position;
     }
-    // A bounded deterministic fallback avoids an unbounded rejection loop.
+    // 有界的确定性回退方式可避免无限重试。
     const position = { x: this.position.x > 0 ? -halfWidth : halfWidth,
       y: this.position.y > 0 ? -halfHeight : halfHeight };
     if (Math.hypot(position.x - this.position.x, position.y - this.position.y) < this.tuning.minSpawnDistance) {

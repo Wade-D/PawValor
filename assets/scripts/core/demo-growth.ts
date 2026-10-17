@@ -1,6 +1,6 @@
 import { DEFAULT_DEMO_TUNING } from './demo-model';
 
-/** Cumulative Demo XP stops at the level-2 threshold. */
+/** 试玩累计经验在二级阈值处封顶。 */
 export function applyDemoXp(
   current: { level: 1 | 2; xp: number }, amount: number,
   level2Xp: number = DEFAULT_DEMO_TUNING.level2Xp,

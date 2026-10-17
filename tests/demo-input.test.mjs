@@ -4,8 +4,8 @@ import fs from 'node:fs';
 import vm from 'node:vm';
 import ts from 'typescript';
 
-// The adapter needs the engine module; only its input/vector shell is substituted.
-// The actual DemoInput class and its synchronous restart callback run unchanged.
+// 适配器需要引擎模块；这里只替换输入与向量外壳。
+// 实际的 DemoInput 类及其同步重开回调保持原样运行。
 const source = fs.readFileSync(new URL('../assets/scripts/cocos/DemoInput.ts', import.meta.url), 'utf8');
 const compiled = ts.transpileModule(source, { compilerOptions: {
   module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, experimentalDecorators: true,
@@ -46,7 +46,7 @@ test('focus loss releases restart latch when keyup happens outside the preview',
   input.keyDown({ keyCode: KeyCode.KEY_D });
   input.blur();
   assert.equal(input.movement.x, 0);
-  // The physical key was released outside the preview, so there is no keyUp.
+  // 实际按键在预览窗口外松开，因此不会收到 keyUp。
   input.keyDown({ keyCode: KeyCode.KEY_R });
   assert.equal(restarts, 2);
   input.keyDown({ keyCode: KeyCode.KEY_R });

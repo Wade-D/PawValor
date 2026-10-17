@@ -25,13 +25,13 @@ export class CombatDemo extends Component {
     const issues = validateGameConfig(rainePrototypeConfig);
     if (issues.length) {
       const message = issues.map(issue => `${issue.code} ${issue.path}: ${issue.message}`).join('\n');
-      if (this.statusLabel) this.statusLabel.string = message;
+      if (this.statusLabel) this.statusLabel.string = '配置校验失败，请查看控制台';
       console.error('[CombatDemo] Configuration rejected\n' + message);
       return;
     }
     if (!this.worldRoot || !this.hudLabel || !this.statusLabel || !this.joystickBase || !this.joystickKnob) {
       console.error('[CombatDemo] Required scene binding missing; combat disabled');
-      if (this.statusLabel) this.statusLabel.string = 'Scene binding missing — combat disabled';
+      if (this.statusLabel) this.statusLabel.string = '场景绑定缺失，战斗已停用';
       return;
     }
     this.controls = this.getComponent(DemoInput) ?? this.addComponent(DemoInput);
@@ -102,8 +102,9 @@ export class CombatDemo extends Component {
     }
     marker(state.hero, 'hero', 22.4, new Color(90, 185, 255));
     for (const [key, node] of this.markers) if (!live.has(key)) { node.removeFromParent(); node.destroy(); this.markers.delete(key); }
-    this.hudLabel!.string = `HP ${state.hero.health}/${state.hero.maxHealth}    Lv.${state.level}    XP ${state.xp}/5    Kills ${state.kills}    ${state.elapsedSeconds.toFixed(1)}s`;
-    this.statusLabel!.string = `${state.state.toUpperCase()}${state.xpCapped ? '  |  Demo level cap reached' : ''}${state.state === 'ended' ? '  |  Defeated — press R or Restart' : ''}`;
+    this.hudLabel!.string = `生命 ${state.hero.health}/${state.hero.maxHealth}    等级 ${state.level}    经验 ${state.xp}/5    击杀 ${state.kills}    ${state.elapsedSeconds.toFixed(1)}秒`;
+    const statusText = { idle: '待开始', running: '战斗中', paused: '已暂停', ended: '已阵亡' }[state.state];
+    this.statusLabel!.string = `${statusText}${state.xpCapped ? '  |  已达到试玩等级上限' : ''}${state.state === 'ended' ? '  |  按 R 或点击“重开”' : ''}`;
     this.joystickKnob!.setPosition(this.controls!.movement.x * 45, this.controls!.movement.y * 45);
   }
 
