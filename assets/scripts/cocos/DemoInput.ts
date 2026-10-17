@@ -8,6 +8,7 @@ export class DemoInput extends Component {
   readonly movement = new Vec2();
   onRestart: (() => void) | null = null;
   private readonly keys = new Set<KeyCode>();
+  private restartHeld = false;
   private touchId: number | null = null;
   private readonly touchOrigin = new Vec2();
   private listening = false;
@@ -36,6 +37,7 @@ export class DemoInput extends Component {
 
   dispose(): void {
     this.clear();
+    this.restartHeld = false;
     if (!this.listening) return;
     this.listening = false;
     input.off(Input.EventType.KEY_DOWN, this.keyDown, this);
@@ -51,13 +53,20 @@ export class DemoInput extends Component {
   private readonly blur = (): void => this.clear();
 
   private keyDown(event: EventKeyboard): void {
-    const wasDown = this.keys.has(event.keyCode);
+    if (event.keyCode === KeyCode.KEY_R) {
+      // Restart clears movement synchronously; keep this latch until release.
+      if (!this.restartHeld) {
+        this.restartHeld = true;
+        this.onRestart?.();
+      }
+      return;
+    }
     this.keys.add(event.keyCode);
-    if (event.keyCode === KeyCode.KEY_R && !wasDown) this.onRestart?.();
     this.keyboardMovement();
   }
 
   private keyUp(event: EventKeyboard): void {
+    if (event.keyCode === KeyCode.KEY_R) this.restartHeld = false;
     this.keys.delete(event.keyCode);
     this.keyboardMovement();
   }
