@@ -74,7 +74,8 @@ export class DemoInput extends Component {
     if (this.touchId !== null) return;
     const point = event.getUILocation();
     const size = view.getVisibleSize();
-    if (point.x > size.width / 2 || point.y > size.height / 2) return;
+    const origin = view.getVisibleOrigin();
+    if (point.x > origin.x + size.width / 2 || point.y > origin.y + size.height / 2) return;
     this.touchId = event.getID();
     this.touchOrigin.set(point);
     this.movement.set(0, 0);
