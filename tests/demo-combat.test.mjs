@@ -63,19 +63,34 @@ test('off-axis radius hit kills once and drops one isolated orb at death positio
   assert.deepEqual(orb.position, { x: 3, y: 0.34 });
   orb.position.x = 999; assert.equal(demo.snapshot().orbs[0].position.x, 3);
 });
-test('projectiles expire at configured lifetime or range before farther collisions', () => {
-  for (const [speed, lifetime, steps] of [[12, 0.1, 6], [120, 1, 4]]) {
-    const demo = world([{ x: 7, y: 0 }], config => {
+test('projectiles clip the final sweep at lifetime and range before a same-ray enemy', () => {
+  // Enemy circle entry is just beyond each boundary but inside an unclipped final step:
+  // lifetime: 1.64 - 0.35 = 1.29 > 12 * 0.105 = 1.26 (unclipped end 1.4).
+  // range: 8.5 - 0.35 = 8.15 > 8 (unclipped end 10).
+  for (const [speed, lifetime, steps, obstacleX] of [[12, 0.105, 7, 1.64], [150, 1, 4, 8.5]]) {
+    const demo = world([{ x: 7, y: 0 }, { x: obstacleX, y: 0 }], config => {
       config.projectiles[0].speed = speed; config.projectiles[0].lifetimeSeconds = lifetime;
       config.weapons[0].attackIntervalSeconds = 100;
     });
-    // Move target off the initial ray by hero pursuit after launch.
     assert.equal(of(advance(demo, 1), 'attack').length, 1);
-    assert.equal(demo.snapshot().projectiles.length, 1); demo.enemies[0].position = { x: 7, y: 5 };
-    advance(demo, steps - 1);
+    assert.equal(demo.snapshot().projectiles.length, 1);
+    demo.enemies[0].position = { x: 7, y: 5 };
+    const events = advance(demo, steps - 1);
+    assert.equal(of(events, 'hit').length, 0);
     assert.deepEqual(demo.snapshot().projectiles, []);
-    assert.equal(demo.snapshot().enemies[0].health, 30);
+    assert.deepEqual(demo.snapshot().enemies.map(enemy => enemy.health), [30, 30]);
+    assert.deepEqual(demo.snapshot().enemies[1].position, { x: obstacleX, y: 0 });
   }
+});
+test('a surviving in-range target receives attacks at actual 0.8-second intervals', () => {
+  const demo = world([{ x: 2, y: 0 }], () => {}, { enemyHealth: 100 });
+  const attacks = of(advance(demo, 120), 'attack');
+  assert.equal(attacks.length, 3);
+  for (let index = 1; index < attacks.length; index++) {
+    assert.ok(Math.abs(attacks[index].elapsedSeconds - attacks[index - 1].elapsedSeconds - 0.8) < 1e-10);
+  }
+  assert.equal(demo.snapshot().enemies.length, 1);
+  assert.equal(demo.snapshot().enemies[0].health, 40);
 });
 test('generation mismatch rejects stale hit and reset removes old attacks', () => {
   const demo = world([{ x: 2, y: 0 }]); advance(demo, 1);
