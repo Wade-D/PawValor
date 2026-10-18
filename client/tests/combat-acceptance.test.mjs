@@ -39,3 +39,11 @@ test('接触致死优先于全部派生伤害，阵亡冻结且五次重开清�
  assert.throws(()=>w.applyBuild(combatBuild(),0));
  for(let i=0;i<5;i++){w.reset();w.start();assert.deepEqual(w.snapshot().projectiles,[]);assert.deepEqual(w.snapshot().enemies.flatMap(e=>e.statuses),[]);assert.equal(w.snapshot().elapsedSeconds,0);advance(w,15);}
 });
+test('效果弹体仍裁剪寿命与射程末段，额外偏移不越出战场',()=>{
+ const life=combatWorld({},[{x:4,y:0}],c=>{c.projectiles[0].speed=10;c.projectiles[0].lifetimeSeconds=0.04;});
+ advance(life,1);life.enemies[0].position={x:0.95,y:0};assert.equal(hits(advance(life,10)).length,0);assert.equal(life.snapshot().projectiles.length,0);
+ const range=combatWorld({},[{x:7,y:0}],c=>c.projectiles[0].speed=100);
+ advance(range,1);range.enemies[0].position={x:9.5,y:0};assert.equal(hits(advance(range,10)).length,0);assert.equal(range.snapshot().projectiles.length,0);
+ const offset=combatWorld({'extra-projectile':1},[{x:2,y:5.625}]);offset.position={x:0,y:5.625};
+ const attacks=advance(offset,1).filter(e=>e.type==='attack');assert.equal(attacks.length,2);assert.ok(attacks.every(e=>Math.abs(e.origin.y)<=5.625));
+});

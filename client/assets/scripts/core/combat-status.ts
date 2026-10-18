@@ -11,6 +11,7 @@ function expiry(now: number, duration: number): number {
 }
 export class CombatStatusStore {
   private readonly burns = new Map<string, Burn>();
+  private retiredBurns: Burn[] = [];
   private readonly slows = new Map<string, Slow>();
   applyBurn(target: EntityHandle, payload: BurnPayload, now: number): void {
     const expiresAt = expiry(now, payload.durationSeconds); const nextTickAt = expiry(now, payload.tickIntervalSeconds);
@@ -19,7 +20,11 @@ export class CombatStatusStore {
     if (old && old.expiresAt + 1e-10 >= now) {
       old.expiresAt = Math.max(old.expiresAt, expiresAt);
       if (payload.damage > old.payload.damage) old.payload = JSON.parse(JSON.stringify(payload)) as BurnPayload;
-    } else this.burns.set(key(target), { target: { ...target }, payload: JSON.parse(JSON.stringify(payload)) as BurnPayload, expiresAt, nextTickAt });
+    } else {
+      // 本步直接命中早于状态结算，保留刚到期旧状态尚未结算的最后一跳。
+      if (old && old.nextTickAt <= old.expiresAt + 1e-10) this.retiredBurns.push(old);
+      this.burns.set(key(target), { target: { ...target }, payload: JSON.parse(JSON.stringify(payload)) as BurnPayload, expiresAt, nextTickAt });
+    }
   }
   applySlow(target: EntityHandle, slowRatio: number, durationSeconds: number, now: number): void {
     const expiresAt = expiry(now, durationSeconds);
@@ -34,8 +39,7 @@ export class CombatStatusStore {
   advance(now: number, liveTargets: readonly EntityHandle[]): readonly DamageRequest[] {
     if (!Number.isFinite(now) || now < 0) throw new Error('状态推进时间无效。');
     const live = new Set(liveTargets.map(key)); const requests: DamageRequest[] = [];
-    for (const [id, burn] of this.burns) {
-      if (!live.has(id)) { this.burns.delete(id); continue; }
+    const advanceBurn = (burn: Burn): void => {
       while (burn.nextTickAt <= now + 1e-10 && burn.nextTickAt <= burn.expiresAt + 1e-10) {
         const {durationSeconds: _duration, tickIntervalSeconds: interval, ...request} = burn.payload;
         requests.push({ ...request, attacker: { ...request.attacker }, source: { ...request.source }, target: { ...burn.target }, critical: false });
@@ -43,6 +47,12 @@ export class CombatStatusStore {
         if (!Number.isFinite(next) || next <= burn.nextTickAt) throw new Error('灼烧跳伤时间无法递增。');
         burn.nextTickAt = next;
       }
+    };
+    for (const burn of this.retiredBurns) if (live.has(key(burn.target))) advanceBurn(burn);
+    this.retiredBurns = [];
+    for (const [id, burn] of this.burns) {
+      if (!live.has(id)) { this.burns.delete(id); continue; }
+      advanceBurn(burn);
       if (burn.expiresAt <= now + 1e-10) this.burns.delete(id);
     }
     for (const [id, slow] of this.slows) if (!live.has(id) || slow.expiresAt <= now + 1e-10) this.slows.delete(id);
@@ -53,6 +63,6 @@ export class CombatStatusStore {
     return [...(burn ? [{ kind: 'burn' as const, expiresAt: burn.expiresAt, nextTickAt: burn.nextTickAt }] : []),
       ...(slow ? [{ kind: 'slow' as const, expiresAt: slow.expiresAt, slowRatio: slow.ratio }] : [])];
   }
-  liveRootIds(): ReadonlySet<number> { return new Set([...this.burns.values()].map(b => b.payload.source.rootAttackId)); }
-  reset(): void { this.burns.clear(); this.slows.clear(); }
+  liveRootIds(): ReadonlySet<number> { return new Set([...this.burns.values(), ...this.retiredBurns].map(b => b.payload.source.rootAttackId)); }
+  reset(): void { this.burns.clear(); this.slows.clear(); this.retiredBurns = []; }
 }

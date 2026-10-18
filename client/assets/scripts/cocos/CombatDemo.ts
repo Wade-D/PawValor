@@ -136,7 +136,7 @@ export class CombatDemo extends Component {
     this.hudLabel!.fontSize = 20; this.hudLabel!.lineHeight = 25;
     this.hudLabel!.node.getComponent(UITransform)!.setContentSize(1240, 115);
     this.hudLabel!.node.setPosition(0, 190);
-    this.hudLabel!.string = `效果测试预设：${this.preset.name}（直接注入）  |  测试参数：${this.preset.options.effects ? '敌人生命200、移速1' : '基础参数'}\n${this.preset.summary}  |  ${detail}\n生命 ${state.hero.health.toFixed(1)}/${state.hero.maxHealth}    等级 ${state.level}    经验 ${state.xp}/5    击杀 ${state.kills}    ${state.elapsedSeconds.toFixed(1)}秒\n本入口暂为二级封顶；正式升级三选一在第三步接入`;
+    this.hudLabel!.string = `效果测试预设：${this.preset.name}（直接注入）  |  测试参数：${this.preset.options.effects ? '敌人生命200、移速1' : '基础参数'}\n${this.preset.summary}  |  ${detail}\n生命 ${state.hero.health.toFixed(1)}/${state.hero.maxHealth.toFixed(1)}    等级 ${state.level}    经验 ${state.xp}/5    击杀 ${state.kills}    ${state.elapsedSeconds.toFixed(1)}秒\n本入口暂为二级封顶；正式升级三选一在第三步接入`;
     const statusText = { idle: '待开始', running: '战斗中', paused: '已暂停', ended: '已阵亡' }[state.state];
     this.statusLabel!.string = `${statusText}${state.xpCapped ? '  |  已达到试玩等级上限' : ''}${state.state === 'ended' ? '  |  按 R 或点击“重开”' : ''}`;
     this.joystickKnob!.setPosition(this.controls!.movement.x * 45, this.controls!.movement.y * 45);

@@ -20,3 +20,16 @@ test('效果构筑输入与快照隔离，非法暴击种子不能启动',()=>{
  assert.equal(w.snapshot().effects.stats.attackDamage,22);const snap=w.snapshot();snap.effects.stats.attackDamage=99;assert.equal(w.snapshot().effects.stats.attackDamage,22);
  assert.throws(()=>new DemoWorld(config,{effects:{build,criticalSeed:-1}}));
 });
+test('构造后修改原配置的嵌套继承和尺寸不能影响已发射弹体',()=>{
+ const config=fixtureConfig();config.heroes[0].baseStats.critChance=0;config.weapons[0].attackIntervalSeconds=100;
+ const w=new DemoWorld(config,{effects:{build:combatBuild({'fire-enchantment':1})},initialEnemyPositions:[{x:4,y:0}],tuning:{enemySpeed:0,enemyHealth:200,spawnIntervalSeconds:100}});
+ w.start();advance(w,1);config.projectiles[0].inheritance.enchantments=false;config.projectiles[0].size.x=99;
+ const damage=hits(advance(w,220));assert.deepEqual(damage.filter(e=>e.source.sourceKind==='damage-over-time').map(e=>e.damage),[4,4,4]);
+ assert.equal(w.projectile.size.x,0.3);
+});
+test('有限配置产生暴击溢出时在应用前拒绝，世界保持原状态',()=>{
+ const config=fixtureConfig();config.weapons[0].baseDamage=1e308;config.heroes[0].baseStats.attackPower=0;config.heroes[0].baseStats.critChance=1;
+ const w=new DemoWorld(config,{effects:{build:combatBuild()}});const before=w.snapshot();
+ assert.throws(()=>w.applyBuild(combatBuild({'crit-damage-up':2}),0));assert.deepEqual(w.snapshot(),before);
+ assert.throws(()=>new DemoWorld(config,{effects:{build:combatBuild({'secondary-seeking':3,'attack-up':5})}}));
+});

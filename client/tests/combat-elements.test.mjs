@@ -24,3 +24,16 @@ test('普通雷切为共鸣仍共享同元素冷却，构筑重算不能绕过�
  const first=advance(w,1);w.pause();w.applyBuild(combatBuild({'lightning-enchantment':1},'thunder'),0);w.resume();
  assert.equal(hits([...first,...advance(w,12)]).filter(e=>e.source.sourceKind==='element').length,1);
 });
+test('寒冷到期步仍使用上一步有效减速，下步才恢复原速',()=>{
+ const w=combatWorld({'ice-enchantment':1},[{x:6,y:0}],c=>c.weapons[0].attackIntervalSeconds=100,{tuning:{enemySpeed:1,enemyHealth:200,contactDamage:0,spawnIntervalSeconds:100}});
+ while(!w.snapshot().enemies[0].statuses.length) advance(w,1);
+ const expiry=w.snapshot().enemies[0].statuses[0].expiresAt;
+ while(w.snapshot().elapsedSeconds+1/60<expiry-1e-9) advance(w,1);
+ const before=w.snapshot().enemies[0].position.x;advance(w,1);const after=w.snapshot().enemies[0].position.x;
+ assert.ok(Math.abs(before-after-0.7/60)<1e-9);advance(w,1);assert.ok(Math.abs(after-w.snapshot().enemies[0].position.x-1/60)<1e-9);
+});
+test('寒冷到期步不会提前接触致死',()=>{
+ const w=combatWorld({'ice-enchantment':1},[{x:2.2525,y:0}],c=>c.weapons[0].attackIntervalSeconds=100,{tuning:{enemySpeed:1,enemyHealth:200,contactDamage:100,spawnIntervalSeconds:100}});
+ advance(w,129);assert.equal(w.snapshot().elapsedSeconds.toFixed(2),'2.15');assert.equal(w.snapshot().state,'running');
+ advance(w,1);assert.equal(w.snapshot().state,'ended');
+});

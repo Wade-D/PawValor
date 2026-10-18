@@ -19,3 +19,9 @@ test('爆裂三级十八点，多目标一次预算，范围扩大',()=>{
  const events=advance(w,20);const derived=hits(events).filter(e=>e.source.sourceKind==='explosion');assert.deepEqual(derived.map(e=>e.damage),[18,18]);
  const effect=events.find(e=>e.type==='effectTriggered');assert.ok(Math.abs(effect.radius-1.1)<1e-9);assert.equal(events.filter(e=>e.type==='effectTriggered').length,1);
 });
+test('追踪伤害取效果与弹体继承白名单的交集',()=>{
+ const w=combatWorld({'secondary-seeking':1,'attack-up':5},[{x:2,y:0},{x:2.3,y:0.3}],c=>{
+   c.weapons[0].attackIntervalSeconds=100;c.projectiles.find(p=>p.id==='secondary-seeking-blade').inheritance.stats=[];
+ });
+ assert.deepEqual(hits(advance(w,60)).filter(e=>e.source.sourceKind==='split').map(e=>e.damage),[7]);
+});

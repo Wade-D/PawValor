@@ -92,11 +92,11 @@ export class DemoWorld {
     catch { throw new Error('Invalid config: malformed GameConfig structure.'); }
     if (issues.length) throw new Error(`Invalid config: ${issues.map(issue => `${issue.path}: ${issue.message}`).join('; ')}`);
     this.config = JSON.parse(JSON.stringify(config)) as GameConfig;
-    const hero = config.heroes.find(item => item.id === 'raine');
+    const hero = this.config.heroes.find(item => item.id === 'raine');
     if (!hero) throw new Error('Invalid config: DemoWorld requires hero raine.');
-    const weapon = config.weapons.find(item => item.id === hero.weaponId)!;
+    const weapon = this.config.weapons.find(item => item.id === hero.weaponId)!;
     this.weapon = { ...weapon };
-    this.projectile = { ...config.projectiles.find(item => item.id === weapon.projectileId)! };
+    this.projectile = this.config.projectiles.find(item => item.id === weapon.projectileId)!;
     this.damage = weapon.baseDamage + hero.baseStats.attackPower * weapon.attackPowerScaling;
     this.baseHealth = hero.baseStats.maxHealth;
     this.baseMoveSpeed = hero.baseStats.moveSpeed;
@@ -172,6 +172,7 @@ export class DemoWorld {
       x: this.position.x + intent.x * this.moveSpeed * dtSeconds,
       y: this.position.y + intent.y * this.moveSpeed * dtSeconds,
     });
+    const stepStartSeconds = this.elapsedSeconds;
     this.elapsedSeconds += dtSeconds;
     const events: DemoEvent[] = [];
     // 达到数量上限时也推进生成节拍，避免空位出现后集中补刷。
@@ -189,7 +190,7 @@ export class DemoWorld {
       const dy = this.position.y - enemy.position.y;
       const distance = Math.hypot(dx, dy);
       if (distance > contactRadius) {
-        const travel = Math.min(this.tuning.enemySpeed * this.statuses.slowFactor(enemy.handle, this.elapsedSeconds) * dtSeconds, distance - contactRadius);
+        const travel = Math.min(this.tuning.enemySpeed * this.statuses.slowFactor(enemy.handle, stepStartSeconds) * dtSeconds, distance - contactRadius);
         enemy.position.x += dx / distance * travel;
         enemy.position.y += dy / distance * travel;
       }
@@ -348,7 +349,9 @@ export class DemoWorld {
         source: { ...source }, position: { ...context.position }, target: { ...context.target } });
     }
     for (const secondary of context.secondary) {
-      const factor = secondary.inheritance.stats.includes('attackDamage') ? context.damage : context.baseDamage;
+      const inheritsDamage = secondary.inheritance.stats.includes('attackDamage')
+        && (secondary.behavior.kind !== 'homing' || secondary.projectile!.inheritance.stats.includes('attackDamage'));
+      const factor = inheritsDamage ? context.damage : context.baseDamage;
       const damage = factor * secondary.damageMultiplier;
       if (!Number.isFinite(damage)) throw new Error('副机制伤害溢出。');
       const source: AttackSource = { rootAttackId: context.source.rootAttackId,

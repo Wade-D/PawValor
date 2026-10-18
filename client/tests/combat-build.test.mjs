@@ -5,6 +5,32 @@ const api = await import('../.test-build/core/combat-build.js').catch(() => ({})
 const compile = (build, config = fixtureConfig()) => { assert.equal(typeof api.compileCombatBuild, 'function'); return api.compileCombatBuild(config, build); };
 const close = (a,b) => assert.ok(Math.abs(a-b)<1e-9, `${a} 应为 ${b}`);
 
+test('执行描述与弹体运动不匹配时明确拒绝并过滤候选',()=>{
+ for(const [talent,projectile,movement] of [['secondary-seeking','secondary-seeking-blade','straight'],['extra-projectile','sword-qi','homing']]) {
+   const config=fixtureConfig();config.projectiles.find(p=>p.id===projectile).movement=movement;
+   assert.throws(()=>compile(combatBuild({[talent]:1}),config));
+   assert.equal(api.executableTalent(config.talents.find(t=>t.id===talent),config),false);
+ }
+});
+test('爆裂拒绝超出当前整组触发能力的逐目标间隔',()=>{
+ const config=fixtureConfig();const policy=config.triggerPolicies.find(p=>p.id==='secondary-direct-only');
+ policy.targetHitIntervalSeconds=policy.cooldownSeconds+1;
+ assert.throws(()=>compile(combatBuild({'secondary-burst':1}),config));
+ assert.equal(api.executableTalent(config.talents.find(t=>t.id==='secondary-burst'),config),false);
+});
+test('预检元素、副机制、额外弹体及几何的实际乘积溢出',()=>{
+ const scenarios=[
+   ['fire-enchantment','fire-hit'],['secondary-seeking','secondary-seeking-effect'],['extra-projectile','extra-projectile-attack'],
+ ];
+ for(const [talent,effectId] of scenarios) {
+   const config=fixtureConfig();config.weapons[0].baseDamage=1e308;config.heroes[0].baseStats.attackPower=0;config.heroes[0].baseStats.critChance=0;
+   const effect=config.effects.find(e=>e.id===effectId);assert.ok(effect,effectId);effect.damageMultiplier=2;
+   assert.throws(()=>compile(combatBuild({[talent]:1}),config));
+ }
+ const config=fixtureConfig();config.effects.find(e=>e.id==='secondary-burst-effect').behavior.radius=1.7e308;
+ assert.throws(()=>compile(combatBuild({'secondary-burst':1,'area-size-up':3}),config));
+});
+
 test('百分比与独立奖励按基础值加算，满级属性符合原设计', () => {
   const b = combatBuild({'attack-up':2}); b.bonusRewardCounts['base-attack']=3;
   close(compile(b).stats.attackDamage,24.6);

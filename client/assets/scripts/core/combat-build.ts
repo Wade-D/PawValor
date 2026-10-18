@@ -8,13 +8,22 @@ import { validateGameConfig } from './validate-config';
 export function executableTalent(talent: TalentConfig, config: GameConfig): boolean {
   return talent.effectIds.length > 0 && talent.effectIds.every(id => {
     const e = config.effects.find(effect => effect.id === id);
-    return !!e && (e.kind === 'stat-modifier' ? e.stat !== 'projectileCount'
-      : e.kind === 'element' ? !!e.execution
-      : e.kind === 'secondary-mechanism' || (e.kind === 'attack-pattern' && !!e.execution));
+    if (!e) return false;
+    if (e.kind === 'stat-modifier') return e.stat !== 'projectileCount';
+    if (e.kind === 'element') return !!e.execution;
+    if (e.kind === 'secondary-mechanism') {
+      if (e.behavior.kind === 'homing') {
+        const projectileId = e.behavior.projectileId;
+        return config.projectiles.some(p => p.id === projectileId && p.movement === 'homing');
+      }
+      const policy = config.triggerPolicies.find(p => p.id === e.triggerPolicyId);
+      return !!policy && policy.targetHitIntervalSeconds <= policy.cooldownSeconds;
+    }
+    return e.kind === 'attack-pattern' && !!e.execution && config.projectiles.some(p => p.id === e.projectileId && p.movement === 'straight');
   });
 }
 export function combatCapabilities(config: GameConfig, build: GrowthReadonly<BuildState>): readonly CombatCapability[] {
-  return config.talents.some(t => talentRank(build, t.id) > 0 && t.effectIds.some(id => {
+  return config.talents.some(t => talentRank(build, t.id) > 0 && executableTalent(t, config) && t.effectIds.some(id => {
     const e = config.effects.find(effect => effect.id === id);
     return e?.kind === 'secondary-mechanism' && e.behavior.kind === 'explosion';
   })) ? ['area-attack'] : [];
@@ -60,6 +69,7 @@ export function compileCombatBuild(config: GameConfig, input: GrowthReadonly<Bui
   assert(Object.keys(input.bonusRewardCounts).length === 3 && rewardIds.every(id => Number.isSafeInteger(input.bonusRewardCounts[id]) && input.bonusRewardCounts[id] >= 0), '基础强化次数无效。');
   const weapon = config.weapons.find(w => w.id === hero.weaponId)!;
   const projectile = config.projectiles.find(p => p.id === weapon.projectileId)!;
+  assert(projectile.movement === 'straight', '当前战斗只支持直线主弹体。');
   const baseDamage = weapon.baseDamage + hero.baseStats.attackPower * weapon.attackPowerScaling;
   const base: Record<StatId, number> = { attackDamage: baseDamage, attackSpeed: 1, critChance: hero.baseStats.critChance,
     critDamageMultiplier: hero.baseStats.critDamageMultiplier, pierceCount: projectile.pierceCount, projectileSize: 1,
@@ -114,11 +124,36 @@ export function compileCombatBuild(config: GameConfig, input: GrowthReadonly<Bui
     if (effect.kind === 'secondary-mechanism') {
       assert(Number.isFinite(effect.damageMultiplier * rank), '副机制倍率溢出。');
       const projectileId = effect.behavior.kind === 'homing' ? effect.behavior.projectileId : null;
+      const policy = config.triggerPolicies.find(p => p.id === effect.triggerPolicyId)!;
+      assert(effect.behavior.kind !== 'explosion' || policy.targetHitIntervalSeconds <= policy.cooldownSeconds,
+        '当前整组爆裂不支持高于全局冷却的逐目标间隔。');
       secondary.push({ effectId: effect.id, name, damageMultiplier: effect.damageMultiplier * rank,
         policy: config.triggerPolicies.find(p => p.id === effect.triggerPolicyId)!, inheritance: effect.inheritance, behavior: effect.behavior,
         projectile: projectileId ? config.projectiles.find(p => p.id === projectileId) : undefined });
     } else if (effect.kind === 'attack-pattern' && effect.execution) extraProjectiles.push({ effectId: effect.id, name,
       damageMultiplier: effect.damageMultiplier, lateralOffset: effect.execution.lateralOffset, projectile: config.projectiles.find(p => p.id === effect.projectileId)! });
+  }
+  // 所有可达伤害与几何乘积在静止事务内校验，避免命中途中才出现无穷值。
+  const finite = (...values: number[]): void => { assert(values.every(v => Number.isFinite(v) && v >= 0), '战斗执行乘积超出有限范围。'); };
+  const shots = [{ projectile, damageMultiplier: 1 }, ...extraProjectiles];
+  for (const shot of shots) {
+    const inherits = shot.projectile.inheritance.stats;
+    const damage = (inherits.includes('attackDamage') ? stats.attackDamage : baseDamage) * shot.damageMultiplier;
+    const rawDamage = baseDamage * shot.damageMultiplier;
+    const crit = inherits.includes('critChance') ? stats.critChance : hero.baseStats.critChance;
+    const critMultiplier = inherits.includes('critDamageMultiplier') ? stats.critDamageMultiplier : hero.baseStats.critDamageMultiplier;
+    finite(damage, rawDamage, crit > 0 ? damage * critMultiplier : damage);
+    finite(shot.projectile.size.x * (inherits.includes('projectileSize') ? stats.projectileSize.x / projectile.size.x : 1),
+      shot.projectile.size.y * (inherits.includes('projectileSize') ? stats.projectileSize.y / projectile.size.y : 1));
+    if (shot.projectile.inheritance.enchantments) for (const element of elements) finite(damage * element.damageMultiplier);
+    if (shot.projectile.inheritance.secondaryMechanisms) for (const child of secondary) {
+      const inherited = (stat: StatId): boolean => child.inheritance.stats.includes(stat)
+        && (child.behavior.kind !== 'homing' || child.projectile!.inheritance.stats.includes(stat));
+      finite((inherited('attackDamage') ? damage : rawDamage) * child.damageMultiplier);
+      if (child.behavior.kind === 'explosion') finite(child.behavior.radius * (inherited('areaSize') ? stats.areaScale : 1));
+      else finite(child.projectile!.size.x * (inherited('projectileSize') ? stats.projectileSize.x / projectile.size.x : 1),
+        child.projectile!.size.y * (inherited('projectileSize') ? stats.projectileSize.y / projectile.size.y : 1));
+    }
   }
   return JSON.parse(JSON.stringify({ build: input, stats, baseDamage, elements, secondary, extraProjectiles })) as CompiledCombatBuild;
 }
