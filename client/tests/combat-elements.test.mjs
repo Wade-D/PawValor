@@ -19,3 +19,8 @@ test('火冰雷各自触发，暂停冻结，旧灼烧快照不追溯增强',()=
  w.applyBuild(combatBuild({'fire-enchantment':3,'attack-up':5}),0);w.resume();assert.deepEqual(hits(advance(w,200)).filter(e=>e.source.sourceKind==='damage-over-time').map(e=>e.damage),[4,4,4]);
  w.reset();w.start();assert.deepEqual(w.snapshot().enemies[0].statuses,[]);
 });
+test('普通雷切为共鸣仍共享同元素冷却，构筑重算不能绕过限制',()=>{
+ const w=combatWorld({'lightning-enchantment':1},undefined,c=>{c.weapons[0].attackIntervalSeconds=0.1;c.projectiles[0].speed=300;});
+ const first=advance(w,1);w.pause();w.applyBuild(combatBuild({'lightning-enchantment':1},'thunder'),0);w.resume();
+ assert.equal(hits([...first,...advance(w,12)]).filter(e=>e.source.sourceKind==='element').length,1);
+});

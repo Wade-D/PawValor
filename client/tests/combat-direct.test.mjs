@@ -30,3 +30,15 @@ test('攻速移动和护甲实际作用于间隔位移与接触伤害',()=>{
  assert.ok(Math.abs(first.find(e=>e.type==='heroDamaged').damage-9.4)<1e-9);
  const attacks=[...first,...advance(w,100)].filter(e=>e.type==='attack');assert.ok(attacks.length>=3);assert.ok(attacks[1].elapsedSeconds-attacks[0].elapsedSeconds<0.8);
 });
+test('直接弹体仅继承白名单内的暴击修饰，保留英雄基础暴击属性',()=>{
+ const excluded=combatWorld({'crit-chance-up':1},undefined,c=>{
+   c.effects.find(e=>e.id==='crit-chance-up-stat').value=1;
+   c.projectiles[0].inheritance.stats=c.projectiles[0].inheritance.stats.filter(s=>s!=='critChance');
+ });
+ assert.equal(hits(advance(excluded,15))[0].critical,false);
+ const damage=combatWorld({'crit-damage-up':1},undefined,c=>{
+   c.heroes[0].baseStats.critChance=1;
+   c.projectiles[0].inheritance.stats=c.projectiles[0].inheritance.stats.filter(s=>s!=='critDamageMultiplier');
+ });
+ assert.equal(hits(advance(damage,15))[0].damage,30);
+});

@@ -272,13 +272,15 @@ export class DemoWorld {
       position: origin, direction: { ...direction }, age: 0, distance: 0 };
     if (this.compiled) {
       const c = this.compiled; const inherits = projectile.inheritance.stats;
+      const baseStats = this.config.heroes.find(hero => hero.id === c.build.heroId)!.baseStats;
       sword.source = { rootAttackId: rootId, sourceKind: 'direct', depth: 0 }; sword.kind = 'direct'; sword.hitTargets = new Set();
       sword.payload = { compiled: c, baseDamage: c.baseDamage * multiplier, damage: (inherits.includes('attackDamage') ? c.stats.attackDamage : c.baseDamage) * multiplier,
         range: inherits.includes('range') ? c.stats.range : this.weapon.range,
         size: { x: projectile.size.x * (inherits.includes('projectileSize') ? c.stats.projectileSize.x / this.projectile.size.x : 1),
           y: projectile.size.y * (inherits.includes('projectileSize') ? c.stats.projectileSize.y / this.projectile.size.y : 1) },
         pierce: projectile.pierceCount + (inherits.includes('pierceCount') ? c.stats.pierceCount - this.projectile.pierceCount : 0),
-        critChance: c.stats.critChance, critMultiplier: c.stats.critDamageMultiplier, projectile };
+        critChance: inherits.includes('critChance') ? c.stats.critChance : baseStats.critChance,
+        critMultiplier: inherits.includes('critDamageMultiplier') ? c.stats.critDamageMultiplier : baseStats.critDamageMultiplier, projectile };
       if (!Number.isFinite(sword.payload.damage)) throw new Error('弹体伤害溢出。');
     }
     this.swords.push(sword);
@@ -334,7 +336,7 @@ export class DemoWorld {
   private onDirectHit(context: DirectHitContext, events: DemoEvent[]): void {
     for (const element of context.elements) {
       const target = this.enemies.find(e => e.health > 0 && e.handle.id === context.target.id && e.handle.generation === context.target.generation);
-      if (!target || !this.triggerGuard.tryConsume(element.effectId, element.policy, context.source, target.handle, this.generation, this.elapsedSeconds)) continue;
+      if (!target || !this.triggerGuard.tryConsume(`element:${element.element}`, element.policy, context.source, target.handle, this.generation, this.elapsedSeconds)) continue;
       const source: AttackSource = { rootAttackId: context.source.rootAttackId, sourceKind: element.kind === 'burn' ? 'damage-over-time' : 'element', depth: context.source.depth + 1 };
       const request = { attackId: this.nextAttackId++, attacker: { ...context.attacker }, target: { ...target.handle }, source, damage: context.damage * element.damageMultiplier, critical: false };
       if (element.kind === 'burn') this.statuses.applyBurn(target.handle, { ...request, durationSeconds: element.durationSeconds, tickIntervalSeconds: element.tickIntervalSeconds }, this.elapsedSeconds);
