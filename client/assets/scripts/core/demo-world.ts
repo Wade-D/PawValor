@@ -2,6 +2,7 @@ import type { BuildState } from './build';
 import type { GrowthReadonly } from './growth-model';
 import type { CompiledCombatBuild, DamageRequest, DirectHitContext } from './combat-model';
 import { compileCombatBuild } from './combat-build';
+import { CombatStatusStore } from './combat-status';
 import { CombatTriggerGuard } from './combat-trigger';
 import type { ProjectileConfig, WeaponConfig, GameConfig } from './config';
 import type { AttackSource, EntityHandle, RandomSource, RunState, Vec2 } from './contracts';
@@ -56,6 +57,7 @@ export class DemoWorld {
   private readonly initialCompiled: CompiledCombatBuild | null;
   private readonly criticalRandom: SeededRandom;
   private readonly triggerGuard = new CombatTriggerGuard();
+  private readonly statuses = new CombatStatusStore();
   private readonly baseHealth: number;
   private readonly baseMoveSpeed: number;
   private state: RunState = 'idle';
@@ -138,6 +140,7 @@ export class DemoWorld {
     this.maxHealth = this.compiled?.stats.maxHealth ?? this.baseHealth;
     this.moveSpeed = this.compiled?.stats.moveSpeed ?? this.baseMoveSpeed;
     this.triggerGuard.reset();
+    this.statuses.reset();
     this.criticalRandom.reset();
     this.elapsedSeconds = 0;
     this.position = { x: 0, y: 0 };
@@ -183,7 +186,7 @@ export class DemoWorld {
       const dy = this.position.y - enemy.position.y;
       const distance = Math.hypot(dx, dy);
       if (distance > contactRadius) {
-        const travel = Math.min(this.tuning.enemySpeed * dtSeconds, distance - contactRadius);
+        const travel = Math.min(this.tuning.enemySpeed * this.statuses.slowFactor(enemy.handle, this.elapsedSeconds) * dtSeconds, distance - contactRadius);
         enemy.position.x += dx / distance * travel;
         enemy.position.y += dy / distance * travel;
       }
@@ -204,6 +207,10 @@ export class DemoWorld {
     }
     this.launchSword(events);
     this.advanceSwords(dtSeconds, events);
+    for (const request of this.statuses.advance(this.elapsedSeconds, this.enemies.map(e => e.handle))) this.dealDamage(request, events);
+    const liveRoots = new Set(this.statuses.liveRootIds());
+    for (const sword of this.swords) liveRoots.add(sword.source?.rootAttackId ?? sword.attackId);
+    this.triggerGuard.retainRoots(liveRoots, this.generation, this.elapsedSeconds);
     this.pickupOrbs(events);
     return events;
   }
@@ -292,12 +299,16 @@ export class DemoWorld {
       }
       collisions.sort((a,b) => a.fraction - b.fraction || a.enemy.handle.id - b.enemy.handle.id);
       let consumed = false;
-      for (const {enemy: hit} of collisions) {
+      for (const {enemy: hit, fraction} of collisions) {
         if (hit.health <= 0) continue;
         const critical = !!sword.payload && sword.kind !== 'homing' && this.criticalRandom.next() < sword.payload.critChance;
         const damage = (sword.payload?.damage ?? this.damage) * (critical ? sword.payload!.critMultiplier : 1);
         this.dealDamage({ attackId: sword.attackId, attacker: sword.attacker, target: hit.handle,
           source: sword.source ?? this.source(sword.attackId), damage, critical }, events);
+        if (sword.payload && sword.kind === 'direct') this.onDirectHit({ attackId: sword.attackId, attacker: sword.attacker,
+          source: sword.source!, target: hit.handle, position: { x: sword.position.x + (end.x - sword.position.x) * fraction, y: sword.position.y + (end.y - sword.position.y) * fraction },
+          damage: sword.payload.damage, elements: sword.payload.projectile.inheritance.enchantments ? sword.payload.compiled.elements : [],
+          secondary: sword.payload.projectile.inheritance.secondaryMechanisms ? sword.payload.compiled.secondary : [], compiled: sword.payload.compiled }, events);
         sword.hitTargets?.add(`${hit.handle.generation}:${hit.handle.id}`);
         if (!sword.payload || sword.payload.pierce <= 0) { consumed = true; break; }
         sword.payload.pierce--;
@@ -306,6 +317,22 @@ export class DemoWorld {
       if (!consumed && sword.age + 1e-10 < projectile.lifetimeSeconds && sword.distance + 1e-10 < (sword.payload?.range ?? this.weapon.range)) remaining.push(sword);
     }
     this.swords = remaining;
+  }
+
+  private onDirectHit(context: DirectHitContext, events: DemoEvent[]): void {
+    for (const element of context.elements) {
+      const target = this.enemies.find(e => e.health > 0 && e.handle.id === context.target.id && e.handle.generation === context.target.generation);
+      if (!target || !this.triggerGuard.tryConsume(element.effectId, element.policy, context.source, target.handle, this.generation, this.elapsedSeconds)) continue;
+      const source: AttackSource = { rootAttackId: context.source.rootAttackId, sourceKind: element.kind === 'burn' ? 'damage-over-time' : 'element', depth: context.source.depth + 1 };
+      const request = { attackId: this.nextAttackId++, attacker: { ...context.attacker }, target: { ...target.handle }, source, damage: context.damage * element.damageMultiplier, critical: false };
+      if (element.kind === 'burn') this.statuses.applyBurn(target.handle, { ...request, durationSeconds: element.durationSeconds, tickIntervalSeconds: element.tickIntervalSeconds }, this.elapsedSeconds);
+      else {
+        this.dealDamage(request, events);
+        if (element.kind === 'slow-hit' && target.health > 0) this.statuses.applySlow(target.handle, element.slowRatio, element.durationSeconds, this.elapsedSeconds);
+      }
+      events.push({ type: 'effectTriggered', elapsedSeconds: this.elapsedSeconds, effectId: element.effectId, effectName: element.name,
+        source: { ...source }, position: { ...context.position }, target: { ...context.target } });
+    }
   }
 
   private dealDamage(request: DamageRequest, events: DemoEvent[]): void {
@@ -354,7 +381,7 @@ export class DemoWorld {
       ...(this.compiled ? { effects: JSON.parse(JSON.stringify({ build: this.compiled.build, stats: this.compiled.stats, elements: this.compiled.elements })) } : {}),
       state: this.state, elapsedSeconds: this.elapsedSeconds,
       hero: { handle: { id: 1, generation: this.generation }, position: { ...this.position }, health: this.health, maxHealth: this.maxHealth },
-      enemies: this.enemies.map((enemy): DemoEnemySnapshot => ({ handle: { ...enemy.handle }, position: { ...enemy.position }, health: enemy.health, ...(this.compiled ? { maxHealth: this.tuning.enemyHealth } : {}) })),
+      enemies: this.enemies.map((enemy): DemoEnemySnapshot => ({ handle: { ...enemy.handle }, position: { ...enemy.position }, health: enemy.health, ...(this.compiled ? { maxHealth: this.tuning.enemyHealth, statuses: this.statuses.snapshot(enemy.handle) } : {}) })),
       projectiles: this.swords.map(sword => ({ handle: { ...sword.handle }, position: { ...sword.position }, direction: { ...sword.direction }, ...(sword.payload ? { kind: sword.kind, size: { ...sword.payload.size } } : {}) })),
       orbs: this.orbs.map(orb => ({ handle: { ...orb.handle }, position: { ...orb.position }, value: orb.value })),
       level: this.level, xp: this.xp, xpCapped: this.level === 2, kills: this.kills,
