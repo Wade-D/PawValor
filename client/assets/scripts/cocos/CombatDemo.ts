@@ -23,6 +23,9 @@ export class CombatDemo extends Component {
   private readonly markers = new Map<string, Node>();
   private panel: CombatEffectPanel | null = null;
   private preset = createCombatPreset('basic');
+  // 仅供本地多目标验收；默认玩法仍使用原生成规则。
+  private readonly fixtureTargets = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('combatFixture') === 'secondary'
+    ? [{ x: 2, y: 0 }, { x: 2.3, y: 0.3 }, { x: 4, y: 0 }] : undefined;
 
   onLoad(): void {
     view.setDesignResolutionSize(1280, 720, 2);
@@ -44,7 +47,7 @@ export class CombatDemo extends Component {
     this.drawCircle(this.joystickKnob, 25, new Color(120, 190, 220, 200));
     this.panel = this.addComponent(CombatEffectPanel);
     this.panel.initialize(this.worldRoot, id => this.selectPreset(id));
-    this.world = new DemoWorld(this.preset.config, this.preset.options);
+    this.world = this.createWorld();
     console.info('[CombatDemo] Configuration valid; prototype combat ready');
     this.render();
   }
@@ -83,8 +86,12 @@ export class CombatDemo extends Component {
   private selectPreset(id: CombatPresetId): void {
     this.resetTiming(); this.clearMarkers(); this.panel?.clear();
     this.preset = createCombatPreset(id);
-    this.world = new DemoWorld(this.preset.config, this.preset.options);
+    this.world = this.createWorld();
     this.world.start(); this.render();
+  }
+
+  private createWorld(): DemoWorld {
+    return new DemoWorld(this.preset.config, { ...this.preset.options, initialEnemyPositions: this.fixtureTargets });
   }
 
   private drawCircle(node: Node, radius: number, color: Color): void {
