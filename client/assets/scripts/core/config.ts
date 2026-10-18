@@ -107,7 +107,8 @@ export type EffectConfig =
       projectileCount: number;
       damageMultiplier: number;
       triggerPolicyId: string;
-      execution?: { kind: 'extra-projectile'; trigger: 'on-fire'; lateralOffset: number };
+      execution?: { kind: 'extra-projectile'; trigger: 'on-fire'; lateralOffset: number }
+        | { kind: 'synergy-volley'; trigger: 'on-fire'; spreadDegrees: number; inheritance: ProjectileInheritance };
     }
   | {
       id: string;

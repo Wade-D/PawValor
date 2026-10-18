@@ -198,11 +198,18 @@ export function validateGameConfig(config: GameConfig): ConfigIssue[] {
         number(effect.projectileCount, `${p}.projectileCount`, 1, true);
         number(effect.damageMultiplier, `${p}.damageMultiplier`);
         if (effect.execution) {
-          domain(effect.execution.kind, `${p}.execution.kind`, ['extra-projectile']);
+          domain(effect.execution.kind, `${p}.execution.kind`, ['extra-projectile', 'synergy-volley']);
           domain(effect.execution.trigger, `${p}.execution.trigger`, ['on-fire']);
-          domain(effect.pattern, `${p}.pattern`, ['single']);
-          fixedNumber(effect.projectileCount, `${p}.projectileCount`, 1);
-          number(effect.execution.lateralOffset, `${p}.execution.lateralOffset`);
+          if (effect.execution.kind === 'extra-projectile') {
+            domain(effect.pattern, `${p}.pattern`, ['single']); fixedNumber(effect.projectileCount, `${p}.projectileCount`, 1);
+            number(effect.execution.lateralOffset, `${p}.execution.lateralOffset`);
+          } else {
+            domain(effect.pattern, `${p}.pattern`, ['multishot']); number(effect.projectileCount, `${p}.projectileCount`, 1, true, false, 64);
+            number(effect.execution.spreadDegrees, `${p}.execution.spreadDegrees`, 0, false, false, 360);
+            effect.execution.inheritance.stats.forEach((stat, j) => domain(stat, `${p}.execution.inheritance.stats[${j}]`, ['attackDamage','projectileSize','range']));
+            domain(effect.execution.inheritance.enchantments, `${p}.execution.inheritance.enchantments`, [false]);
+            domain(effect.execution.inheritance.secondaryMechanisms, `${p}.execution.inheritance.secondaryMechanisms`, [false]);
+          }
         }
         break;
       case 'element':

@@ -22,8 +22,13 @@ export interface ResolvedExtraProjectile {
   effectId: string; name: string; damageMultiplier: number; lateralOffset: number; projectile: ProjectileConfig;
 }
 export interface CompiledCombatBuild {
+  synergyVolleys: readonly ResolvedSynergyVolley[];
   build: GrowthReadonly<BuildState>; stats: ResolvedCombatStats; baseDamage: number;
   elements: readonly ResolvedElement[]; secondary: readonly ResolvedSecondary[]; extraProjectiles: readonly ResolvedExtraProjectile[];
+}
+export interface ResolvedSynergyVolley {
+  synergyId: string; effectId: string; name: string; projectileCount: number; spreadDegrees: number;
+  damageMultiplier: number; inheritance: ProjectileInheritance; projectile: ProjectileConfig; policy: TriggerPolicy;
 }
 export interface DamageRequest {
   attackId: number; attacker: EntityHandle; target: EntityHandle; source: AttackSource; damage: number; critical: boolean;

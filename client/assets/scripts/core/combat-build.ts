@@ -1,6 +1,6 @@
 import type { BuildState } from './build';
 import type { CombatCapability, EffectConfig, GameConfig, TalentConfig, StatId } from './config';
-import type { CompiledCombatBuild, ResolvedElement, ResolvedSecondary, ResolvedExtraProjectile } from './combat-model';
+import type { CompiledCombatBuild, ResolvedElement, ResolvedSecondary, ResolvedExtraProjectile, ResolvedSynergyVolley } from './combat-model';
 import type { GrowthReadonly } from './growth-model';
 import { meetsPrerequisites, talentRank } from './build-prerequisites';
 import { validateGameConfig } from './validate-config';
@@ -19,7 +19,7 @@ export function executableTalent(talent: TalentConfig, config: GameConfig): bool
       const policy = config.triggerPolicies.find(p => p.id === e.triggerPolicyId);
       return !!policy && policy.targetHitIntervalSeconds <= policy.cooldownSeconds;
     }
-    return e.kind === 'attack-pattern' && !!e.execution && config.projectiles.some(p => p.id === e.projectileId && p.movement === 'straight');
+    return e.kind === 'attack-pattern' && e.execution?.kind === 'extra-projectile' && config.projectiles.some(p => p.id === e.projectileId && p.movement === 'straight');
   });
 }
 export function combatCapabilities(config: GameConfig, build: GrowthReadonly<BuildState>): readonly CombatCapability[] {
@@ -46,7 +46,8 @@ export function compileCombatBuild(config: GameConfig, input: GrowthReadonly<Bui
       && event.branchId === branch?.id && event.effectId === route?.ultimate.effectId
       && event.ultimateBehaviorEffectId === branch?.ultimateBehaviorEffectId, '终极进化记录无效。');
   }
-  for (const id of input.activeSynergyIds) assert(config.synergies.some(s => s.id === id), '组合引用无效。');
+  assert(new Set(input.activeSynergyIds).size === input.activeSynergyIds.length, '组合不可重复激活。');
+  for (const id of input.activeSynergyIds) assert(config.synergies.some(s => s.id === id && meetsPrerequisites(s.prerequisites, input)), '组合引用或前置无效。');
   for (const pending of input.pendingSynergies) assert(config.synergies.some(s => s.id === pending.synergyId)
     && Number.isSafeInteger(pending.eligibleAtLevel) && pending.activateAtLevel === pending.eligibleAtLevel + 1, '待激活组合记录无效。');
   const owned: TalentConfig[] = [];
@@ -130,8 +131,24 @@ export function compileCombatBuild(config: GameConfig, input: GrowthReadonly<Bui
       secondary.push({ effectId: effect.id, name, damageMultiplier: effect.damageMultiplier * rank,
         policy: config.triggerPolicies.find(p => p.id === effect.triggerPolicyId)!, inheritance: effect.inheritance, behavior: effect.behavior,
         projectile: projectileId ? config.projectiles.find(p => p.id === projectileId) : undefined });
-    } else if (effect.kind === 'attack-pattern' && effect.execution) extraProjectiles.push({ effectId: effect.id, name,
+    } else if (effect.kind === 'attack-pattern' && effect.execution?.kind === 'extra-projectile') extraProjectiles.push({ effectId: effect.id, name,
       damageMultiplier: effect.damageMultiplier, lateralOffset: effect.execution.lateralOffset, projectile: config.projectiles.find(p => p.id === effect.projectileId)! });
+  }
+  const synergyVolleys: ResolvedSynergyVolley[] = [];
+  for (const id of input.activeSynergyIds) {
+    const synergy = config.synergies.find(s => s.id === id)!;
+    assert(synergy.effectIds.length > 0, '组合缺少执行效果。');
+    for (const effectId of synergy.effectIds) {
+      const e = config.effects.find(e => e.id === effectId);
+      assert(e?.kind === 'attack-pattern' && e.execution?.kind === 'synergy-volley', '组合尚不支持执行。');
+      const p = config.projectiles.find(p => p.id === e.projectileId)!; const policy = config.triggerPolicies.find(p => p.id === e.triggerPolicyId)!;
+      assert(p.movement === 'straight' && p.pierceCount === 0 && !p.inheritance.enchantments && !p.inheritance.secondaryMechanisms
+        && p.inheritance.stats.every(s => ['attackDamage','projectileSize','range'].includes(s)), '组合弹体继承或运动不支持。');
+      assert(policy.allowedSources.length === 1 && policy.allowedSources[0] === 'direct' && policy.maxDepth === 0 && policy.maxTriggersPerRoot === 1
+        && policy.cooldownSeconds === 0 && policy.targetHitIntervalSeconds === 0, '组合触发策略不支持。');
+      synergyVolleys.push({synergyId:id,effectId:e.id,name:synergy.name,projectileCount:e.projectileCount,spreadDegrees:e.execution.spreadDegrees,
+        damageMultiplier:e.damageMultiplier,inheritance:e.execution.inheritance,projectile:p,policy});
+    }
   }
   // 所有可达伤害与几何乘积在静止事务内校验，避免命中途中才出现无穷值。
   const finite = (...values: number[]): void => { assert(values.every(v => Number.isFinite(v) && v >= 0), '战斗执行乘积超出有限范围。'); };
@@ -155,5 +172,12 @@ export function compileCombatBuild(config: GameConfig, input: GrowthReadonly<Bui
         child.projectile!.size.y * (inherited('projectileSize') ? stats.projectileSize.y / projectile.size.y : 1));
     }
   }
-  return JSON.parse(JSON.stringify({ build: input, stats, baseDamage, elements, secondary, extraProjectiles })) as CompiledCombatBuild;
+  const primaryDamage = projectile.inheritance.stats.includes('attackDamage') ? stats.attackDamage : baseDamage;
+  for (const volley of synergyVolleys) {
+    const inherited = (s: StatId): boolean => volley.inheritance.stats.includes(s) && volley.projectile.inheritance.stats.includes(s);
+    finite((inherited('attackDamage') ? primaryDamage : baseDamage) * volley.damageMultiplier,
+      volley.projectile.size.x * (inherited('projectileSize') ? stats.projectileSize.x / projectile.size.x : 1),
+      volley.projectile.size.y * (inherited('projectileSize') ? stats.projectileSize.y / projectile.size.y : 1));
+  }
+  return JSON.parse(JSON.stringify({ build: input, stats, baseDamage, elements, secondary, extraProjectiles, synergyVolleys })) as CompiledCombatBuild;
 }

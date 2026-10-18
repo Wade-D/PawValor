@@ -46,6 +46,7 @@ export const rainePrototypeConfig: GameConfig = {
       },
     },
       { id: 'secondary-seeking-blade', movement: 'homing', speed: 10, size: { x: 0.4, y: 0.7 }, lifetimeSeconds: 2, pierceCount: 0, inheritance: { stats: ['attackDamage', 'projectileSize', 'range'], enchantments: false, secondaryMechanisms: false } },
+    { id: 'synergy-sword-rain', movement: 'straight', speed: 12, size: { x: 0.3, y: 0.8 }, lifetimeSeconds: 1, pierceCount: 0, inheritance: { stats: ['attackDamage', 'projectileSize', 'range'], enchantments: false, secondaryMechanisms: false } },
   ],
   talents: [
     {
@@ -179,10 +180,10 @@ export const rainePrototypeConfig: GameConfig = {
     { id: 'fire-resonance', kind: 'element', element: 'fire', damageMultiplier: 0.3, durationSeconds: 3, triggerPolicyId: 'element-direct-only', execution: { kind: 'burn', tickIntervalSeconds: 1 } },
     { id: 'ice-resonance', kind: 'element', element: 'ice', damageMultiplier: 0.25, durationSeconds: 2, triggerPolicyId: 'element-direct-only', execution: { kind: 'slow-hit', slowRatio: 0.3 } },
     { id: 'lightning-resonance', kind: 'element', element: 'lightning', damageMultiplier: 0.5, durationSeconds: 0, triggerPolicyId: 'element-direct-only', execution: { kind: 'bonus-hit' } },
-    { id: 'test-thunder-sword-rain-attack', kind: 'attack-pattern', pattern: 'multishot', projectileId: 'sword-qi', projectileCount: 4, damageMultiplier: 0.5, triggerPolicyId: 'direct-only' },
+    { id: 'test-thunder-sword-rain-attack', kind: 'attack-pattern', pattern: 'multishot', projectileId: 'synergy-sword-rain', projectileCount: 4, damageMultiplier: 0.5, triggerPolicyId: 'synergy-on-fire', execution: { kind: 'synergy-volley', trigger: 'on-fire', spreadDegrees: 36, inheritance: { stats: ['attackDamage', 'projectileSize', 'range'], enchantments: false, secondaryMechanisms: false } } },
   ],
   synergies: [{
-    id: 'test-thunder-sword-rain', name: '雷霆剑雨（测试前置示例）', usage: 'test-only',
+    id: 'test-thunder-sword-rain', name: '雷霆剑雨', usage: 'test-only',
     prerequisites: [
       { kind: 'hero', heroId: 'raine' },
       { kind: 'route', routeId: 'wanjian' },
@@ -198,6 +199,7 @@ export const rainePrototypeConfig: GameConfig = {
     resonanceEffectIds: ['fire-resonance', 'ice-resonance', 'lightning-resonance'],
   },
   triggerPolicies: [
+    { id: 'synergy-on-fire', allowedSources: ['direct'], maxDepth: 0, maxTriggersPerRoot: 1, cooldownSeconds: 0, targetHitIntervalSeconds: 0 },
     { id: 'secondary-direct-only', allowedSources: ['direct'], maxDepth: 0, maxTriggersPerRoot: 1, cooldownSeconds: 0.8, targetHitIntervalSeconds: 0.8 },
     {
       id: 'direct-only', allowedSources: ['direct'], maxDepth: 0, maxTriggersPerRoot: 1,

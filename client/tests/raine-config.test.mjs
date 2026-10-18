@@ -138,7 +138,7 @@ test('the example synergy declares real prerequisites and next-level test-only a
   assert.equal(config().synergies.length, 1);
   const [synergy] = config().synergies;
   assert.equal(synergy.id, 'test-thunder-sword-rain');
-  assert.match(synergy.name, /测试/);
+  assert.equal(synergy.name, '雷霆剑雨');
   assert.equal(synergy.usage, 'test-only');
   assert.equal(synergy.activation, 'next-level');
   assert.ok(synergy.prerequisites.some(item => item.kind === 'route' && item.routeId === 'wanjian'));
