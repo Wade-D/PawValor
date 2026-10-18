@@ -80,7 +80,7 @@
 
 **Files:** 创建 `core/growth-candidates.ts`、`core/growth-draw.ts`、`tests/growth-candidates.test.mjs`、`tests/growth-draw.test.mjs`、`tests/helpers/growth-fixtures.mjs`。
 
-**Interfaces:** 消费 Task 1 的 `GrowthOption` 与 `BuildState`。导出 `meetsPrerequisites(requirements: readonly BuildPrerequisite[], build: Readonly<BuildState>): boolean`；`evaluateTalent(talent: TalentConfig, config: GameConfig, build: Readonly<BuildState>): { eligible: boolean; reasons: readonly TalentRejection[] }`，其中 `TalentRejection = 'unsupported-category' | 'prerequisites' | 'max-level' | 'exclusive'`；`eligibleTalents(config: GameConfig, build: Readonly<BuildState>): readonly TalentConfig[]`；`drawOrdinaryOptions(candidates: readonly TalentConfig[], random: RandomSource, rewards: readonly GrowthRewardConfig[]): readonly GrowthOption[]` 固定返回三项，不改输入。
+**Interfaces:** 消费 Task 1 的 `GrowthOption` 与 `BuildState`。导出 `meetsPrerequisites(requirements: readonly BuildPrerequisite[], build: GrowthReadonly<BuildState>): boolean`；`evaluateTalent(talent: TalentConfig, config: GameConfig, build: GrowthReadonly<BuildState>): { eligible: boolean; reasons: readonly TalentRejection[] }`，其中 `TalentRejection = 'unsupported-category' | 'prerequisites' | 'max-level' | 'exclusive'`；`eligibleTalents(config: GameConfig, build: GrowthReadonly<BuildState>): readonly TalentConfig[]`；`drawOrdinaryOptions(candidates: readonly TalentConfig[], random: RandomSource, rewards: readonly GrowthRewardConfig[]): readonly GrowthOption[]` 固定返回三项，不改输入。
 
 - [x] 写失败测试：逐一验证 hero/talent/route/branch/synergy 前置和 AND 关系；满级、分类与互斥排除，自身升级允许；过滤前后随机调用计数均为零。候选结果顺序与配置一致。
 - [x] 写失败测试：权重 `[1,3]` 的边界随机数 0、0.249999、0.25、接近 1 确认先抽对应区间；四个正权重天赋选三项且不重复；零权重永不抽中；负数/非有限权重明确拒绝；`Number.MAX_VALUE` 权重组合不溢出；固定序列结果一致。候选足够时不混入奖励。
@@ -123,11 +123,28 @@
 - [x] 用 Creator 3.8.6 导入新增资产脚本，核对新脚本 `.meta` 均存在、importer 为 typescript 且 UUID 全局唯一；既有资源 UUID 不变。若许可或 MCP 连接阻塞，继续完成纯核心验收，将资产导入明确记录为未通过项，不报告第一步全部验收完成。
 - [x] 更新两处 README：说明新增成长核心与现有 Lv.2 战斗 Demo 的不同状态，给出使用示例、两次刷新、1% 兜底、固定节点、55 经验原型封顶和实测测试数；保留现有中文画面/触控/微信待测记录。
 - [x] 在 `client/` 执行 `npm.cmd run verify` 并检查退出码、测试总数和零失败；在项目根执行 `git diff --check`，确认改动没有触及原战斗及本地未跟踪目录。只在修复带来新改动或新风险时重复相关验证。
-- [ ] 按执行方法安排独立全分支审查，重点检查事务回滚、极端权重、固定节点与令牌隔离；将可证实问题补充回归测试后修复。审查完如有代码修改，再跑完整 verify。
-- [ ] 精确暂存文档、生成的资产元数据和任务状态，中文提交：`文档：补充成长核心使用与验证记录`。报告最终提交、验证结果和仍待测项；集成动作由用户决定。
+- [x] 按执行方法安排独立全分支审查，重点检查事务回滚、极端权重、固定节点与令牌隔离；将可证实问题补充回归测试后修复。审查完如有代码修改，再跑完整 verify。
+- [x] 精确暂存文档、生成的资产元数据和任务状态，中文提交：`文档：补充成长核心使用与验证记录`。报告最终提交、验证结果和仍待测项；集成动作由用户决定。
 
 ## 执行前状态与选择
 
 本计划编写前，分支已有设计提交 `9fe7897`，产品代码未修改；此前完整基线验证为 244 项通过。本轮仅编写和检查文档，不将此前测试结果算作新实现验证。
 
 建议由当前会话在现有分支和工作目录逐项执行，最后独立全分支审查：五项任务依赖共享类型与事务接口，顺序实现可以减少交接成本。也可选择每项由子代理实现并单独审查，代价是更多独立上下文。用户须先审阅本计划并选定执行方式；未经选择不启动实现或子代理。
+
+## 执行结果与裁定
+
+用户选择当前会话在现有分支及目录顺序实现，五项任务均已完成。最终 `npm.cmd run verify`：287 项通过（原有 244 项、新增成长测试 43 项）；适配器类型检查、README 示例执行、Creator 六个元数据导入及全部 26 个资源 UUID 唯一性检查通过。
+
+独立审查为一次全分支审查：Critical 无，Important 一项（公开查询的浅只读类型无法接收构筑快照），Minor 无。已添加三条正向类型回归，确认 TS2345 失败后将查询参数改为递归只读，完整验证再次通过。没有遗留审查问题。
+
+实现裁定及代价：
+
+- Windows 下用 PowerShell 等价维护执行记录，放在已有忽略规则的 `client/.superpowers/sdd/`；只改变临时记录位置，不改变产品行为。
+- 基础隔离与回滚随任务 3 事务实现落地，任务 4 验收并修复随机回调重入；抽卡期间重入写命令明确报错，快照读取仍允许。
+- 查询构筑参数由浅只读改为递归只读，允许直接接收公开快照；只放宽可接受的输入类型，无运行时变化。
+- 属性执行、战斗暂停接入、元素/副机制/组合按已批准后续步骤交付；当前战斗仍为第二阶段 Demo。
+- 平衡性、中文画面、触控与微信表现不从核心测试推断；后续仍需实际设备与玩法数据。
+- 外部随机源异常后的状态不回滚，只保证会话内部原子性；复现重试须提供相同随机源状态。
+
+Creator 起初因沙箱启动失败，正常启动后完成导入。用户 `window.json` 解析异常未阻止导入，未手动改全局配置。新增 `client/tests/growth.typecheck.ts` 验证只读契约及公开查询兼容性。用户指定的本地未跟踪目录全部保留，分支保留供后续工作。
