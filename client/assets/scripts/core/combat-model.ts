@@ -32,5 +32,5 @@ export interface CombatStatusSnapshot { kind: 'burn' | 'slow'; expiresAt: number
 export type BurnPayload = Omit<DamageRequest, 'target' | 'critical'> & { durationSeconds: number; tickIntervalSeconds: number };
 export interface DirectHitContext {
   attackId: number; attacker: EntityHandle; source: AttackSource; target: EntityHandle; position: Vec2;
-  damage: number; elements: readonly ResolvedElement[]; secondary: readonly ResolvedSecondary[]; compiled: CompiledCombatBuild;
+  damage: number; baseDamage: number; elements: readonly ResolvedElement[]; secondary: readonly ResolvedSecondary[]; compiled: CompiledCombatBuild;
 }

@@ -2,6 +2,7 @@ import type { BuildState } from './build';
 import type { GrowthReadonly } from './growth-model';
 import type { CompiledCombatBuild, DamageRequest, DirectHitContext } from './combat-model';
 import { compileCombatBuild } from './combat-build';
+import { selectSecondaryTarget, homingDirection, explosionTargets } from './combat-secondary';
 import { CombatStatusStore } from './combat-status';
 import { CombatTriggerGuard } from './combat-trigger';
 import type { ProjectileConfig, WeaponConfig, GameConfig } from './config';
@@ -21,7 +22,7 @@ interface EnemyState {
 
 interface SwordState {
   source?: AttackSource;
-  payload?: { compiled: CompiledCombatBuild; damage: number; range: number; size: Vec2; pierce: number; critChance: number; critMultiplier: number; projectile: ProjectileConfig };
+  payload?: { compiled: CompiledCombatBuild; damage: number; baseDamage: number; range: number; size: Vec2; pierce: number; critChance: number; critMultiplier: number; projectile: ProjectileConfig };
   hitTargets?: Set<string>;
   kind?: 'direct' | 'homing';
   excludedTarget?: EntityHandle;
@@ -70,6 +71,7 @@ export class DemoWorld {
   private nextAttackSeconds = 0;
   private nextAttackId = 1;
   private swords: SwordState[] = [];
+  private pendingSwords: SwordState[] = [];
   private orbs: DemoOrbSnapshot[] = [];
   private kills = 0;
   private level: 1 | 2 = 1;
@@ -147,6 +149,7 @@ export class DemoWorld {
     this.health = this.maxHealth;
     this.enemies = [];
     this.swords = [];
+    this.pendingSwords = [];
     this.orbs = [];
     this.kills = 0;
     this.level = 1;
@@ -270,7 +273,7 @@ export class DemoWorld {
     if (this.compiled) {
       const c = this.compiled; const inherits = projectile.inheritance.stats;
       sword.source = { rootAttackId: rootId, sourceKind: 'direct', depth: 0 }; sword.kind = 'direct'; sword.hitTargets = new Set();
-      sword.payload = { compiled: c, damage: (inherits.includes('attackDamage') ? c.stats.attackDamage : c.baseDamage) * multiplier,
+      sword.payload = { compiled: c, baseDamage: c.baseDamage * multiplier, damage: (inherits.includes('attackDamage') ? c.stats.attackDamage : c.baseDamage) * multiplier,
         range: inherits.includes('range') ? c.stats.range : this.weapon.range,
         size: { x: projectile.size.x * (inherits.includes('projectileSize') ? c.stats.projectileSize.x / this.projectile.size.x : 1),
           y: projectile.size.y * (inherits.includes('projectileSize') ? c.stats.projectileSize.y / this.projectile.size.y : 1) },
@@ -287,13 +290,21 @@ export class DemoWorld {
     const remaining: SwordState[] = [];
     for (const sword of this.swords) {
       if (sword.attacker.generation !== this.generation || sword.handle.generation !== this.generation) continue;
+      if (sword.kind === 'homing') {
+        let target = this.enemies.find(e => e.handle.id === sword.target?.id && e.handle.generation === sword.target?.generation && e.health > 0);
+        if (!target) {
+          const handle = selectSecondaryTarget(sword.position, sword.payload!.range, sword.excludedTarget!, this.enemies.filter(e => e.handle.generation === this.generation));
+          sword.target = handle ?? undefined; target = this.enemies.find(e => e.handle.id === handle?.id && e.handle.generation === handle?.generation);
+        }
+        if (target) sword.direction = homingDirection(sword.position, target.position, sword.direction);
+      }
       const projectile = sword.payload?.projectile ?? this.projectile;
       const duration = Math.min(dt, Math.max(0, projectile.lifetimeSeconds - sword.age));
       const travel = Math.min(projectile.speed * duration, Math.max(0, (sword.payload?.range ?? this.weapon.range) - sword.distance));
       const end = { x: sword.position.x + sword.direction.x * travel, y: sword.position.y + sword.direction.y * travel };
       const collisions: { enemy: EnemyState; fraction: number }[] = [];
       for (const enemy of this.enemies) {
-        if (enemy.health <= 0 || enemy.handle.generation !== this.generation || sword.hitTargets?.has(`${enemy.handle.generation}:${enemy.handle.id}`)) continue;
+        if (enemy.health <= 0 || enemy.handle.generation !== this.generation || (enemy.handle.id === sword.excludedTarget?.id && enemy.handle.generation === sword.excludedTarget?.generation) || sword.hitTargets?.has(`${enemy.handle.generation}:${enemy.handle.id}`)) continue;
         const fraction = segmentCircleHit(sword.position, end, enemy.position, this.tuning.enemyRadius + (sword.payload ? sword.payload.size.x / 2 : 0));
         if (fraction !== null) collisions.push({ enemy, fraction });
       }
@@ -307,7 +318,7 @@ export class DemoWorld {
           source: sword.source ?? this.source(sword.attackId), damage, critical }, events);
         if (sword.payload && sword.kind === 'direct') this.onDirectHit({ attackId: sword.attackId, attacker: sword.attacker,
           source: sword.source!, target: hit.handle, position: { x: sword.position.x + (end.x - sword.position.x) * fraction, y: sword.position.y + (end.y - sword.position.y) * fraction },
-          damage: sword.payload.damage, elements: sword.payload.projectile.inheritance.enchantments ? sword.payload.compiled.elements : [],
+          damage: sword.payload.damage, baseDamage: sword.payload.baseDamage, elements: sword.payload.projectile.inheritance.enchantments ? sword.payload.compiled.elements : [],
           secondary: sword.payload.projectile.inheritance.secondaryMechanisms ? sword.payload.compiled.secondary : [], compiled: sword.payload.compiled }, events);
         sword.hitTargets?.add(`${hit.handle.generation}:${hit.handle.id}`);
         if (!sword.payload || sword.payload.pierce <= 0) { consumed = true; break; }
@@ -316,7 +327,8 @@ export class DemoWorld {
       sword.position = end; sword.age += duration; sword.distance += travel;
       if (!consumed && sword.age + 1e-10 < projectile.lifetimeSeconds && sword.distance + 1e-10 < (sword.payload?.range ?? this.weapon.range)) remaining.push(sword);
     }
-    this.swords = remaining;
+    this.swords = [...remaining, ...this.pendingSwords];
+    this.pendingSwords = [];
   }
 
   private onDirectHit(context: DirectHitContext, events: DemoEvent[]): void {
@@ -332,6 +344,41 @@ export class DemoWorld {
       }
       events.push({ type: 'effectTriggered', elapsedSeconds: this.elapsedSeconds, effectId: element.effectId, effectName: element.name,
         source: { ...source }, position: { ...context.position }, target: { ...context.target } });
+    }
+    for (const secondary of context.secondary) {
+      const factor = secondary.inheritance.stats.includes('attackDamage') ? context.damage : context.baseDamage;
+      const damage = factor * secondary.damageMultiplier;
+      if (!Number.isFinite(damage)) throw new Error('副机制伤害溢出。');
+      const source: AttackSource = { rootAttackId: context.source.rootAttackId,
+        sourceKind: secondary.behavior.kind === 'homing' ? 'split' : 'explosion', depth: context.source.depth + 1 };
+      const candidates = this.enemies.filter(e => e.handle.generation === this.generation && e.health > 0);
+      let radius: number | undefined;
+      if (secondary.behavior.kind === 'homing') {
+        const projectile = secondary.projectile!;
+        const inherited = (stat: import('./config').StatId): boolean => secondary.inheritance.stats.includes(stat) && projectile.inheritance.stats.includes(stat);
+        const range = inherited('range') ? context.compiled.stats.range : this.weapon.range;
+        const target = selectSecondaryTarget(context.position, range, context.target, candidates);
+        if (!target || !this.triggerGuard.tryConsume(secondary.effectId, secondary.policy, context.source, target, this.generation, this.elapsedSeconds)) continue;
+        const targetState = candidates.find(e => e.handle.id === target.id && e.handle.generation === target.generation)!;
+        const attackId = this.nextAttackId++;
+        const direction = homingDirection(context.position, targetState.position, { x: 1, y: 0 });
+        this.pendingSwords.push({ handle: { id: this.nextEntityId++, generation: this.generation }, attacker: { ...context.attacker }, attackId,
+          source, kind: 'homing', target, excludedTarget: { ...context.target }, position: { ...context.position }, direction, age: 0, distance: 0, hitTargets: new Set(),
+          payload: { compiled: context.compiled, damage, baseDamage: context.baseDamage * secondary.damageMultiplier, range,
+            size: { x: projectile.size.x * (inherited('projectileSize') ? context.compiled.stats.projectileSize.x / this.projectile.size.x : 1),
+              y: projectile.size.y * (inherited('projectileSize') ? context.compiled.stats.projectileSize.y / this.projectile.size.y : 1) },
+            pierce: 0, critChance: 0, critMultiplier: 1, projectile } });
+        events.push({ type: 'attack', elapsedSeconds: this.elapsedSeconds, attackId, attacker: { ...context.attacker }, source: { ...source },
+          projectileId: projectile.id, origin: { ...context.position }, direction: { ...direction } });
+      } else {
+        radius = secondary.behavior.radius * (secondary.inheritance.stats.includes('areaSize') ? context.compiled.stats.areaScale : 1);
+        const targets = explosionTargets(context.position, radius, candidates);
+        if (!targets.length || !this.triggerGuard.tryConsume(secondary.effectId, secondary.policy, context.source, targets[0], this.generation, this.elapsedSeconds)) continue;
+        const attackId = this.nextAttackId++;
+        for (const target of targets) this.dealDamage({ attackId, attacker: context.attacker, target, source, damage, critical: false }, events);
+      }
+      events.push({ type: 'effectTriggered', elapsedSeconds: this.elapsedSeconds, effectId: secondary.effectId, effectName: secondary.name,
+        source: { ...source }, position: { ...context.position }, ...(radius === undefined ? {} : { radius }) });
     }
   }
 
