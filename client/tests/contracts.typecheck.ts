@@ -35,10 +35,11 @@ const pending: PendingSynergy = { synergyId: 'storm', eligibleAtLevel: 4, activa
 const build: BuildState = {
   heroId: 'raine', level: 2, routeId: null, branchId: null,
   talentLevels: { attack: 1 }, secondaryMechanismIds: [], enchantmentIds: [],
+  bonusRewardCounts: { 'base-attack': 0, 'base-health': 0, 'base-move-speed': 0 }, ultimateEvolution: null,
   pendingSynergies: [pending], activeSynergyIds: [],
 };
 const choices: PendingGrowthChoice[] = [
-  { kind: 'ordinary', targetLevel: 2, talentIds: ['attack', 'speed', 'health'] },
+  { kind: 'ordinary', targetLevel: 2, options: [{ kind: 'talent', id: 'talent:attack', talentId: 'attack', name: '攻击强化' }] },
   { kind: 'route', targetLevel: 3, routeIds: ['many', 'thunder', 'return'] },
   { kind: 'branch', targetLevel: 7, routeId: 'many', branchIds: ['scatter', 'focus'] },
 ];
