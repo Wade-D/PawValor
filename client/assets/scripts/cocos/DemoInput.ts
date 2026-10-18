@@ -12,6 +12,14 @@ export class DemoInput extends Component {
   private touchId: number | null = null;
   private readonly touchOrigin = new Vec2();
   private listening = false;
+  private gameplayBlocked = false;
+  private readonly suppressedKeys = new Set<KeyCode>();
+
+  setGameplayBlocked(blocked: boolean): void {
+    if (blocked === this.gameplayBlocked) return;
+    if (blocked) for (const key of this.keys) this.suppressedKeys.add(key);
+    this.gameplayBlocked = blocked; this.clear();
+  }
 
   onEnable(): void {
     if (this.listening) return;
@@ -37,6 +45,7 @@ export class DemoInput extends Component {
 
   dispose(): void {
     this.clear();
+    this.suppressedKeys.clear();
     this.restartHeld = false;
     if (!this.listening) return;
     this.listening = false;
@@ -52,6 +61,7 @@ export class DemoInput extends Component {
 
   private resetOnFocusLoss(): void {
     this.clear();
+    this.suppressedKeys.clear();
     // 松键可能发生在预览窗口外，输入系统无法收到该事件。
     this.restartHeld = false;
   }
@@ -67,6 +77,8 @@ export class DemoInput extends Component {
       }
       return;
     }
+    if (this.gameplayBlocked) { this.suppressedKeys.add(event.keyCode); return; }
+    if (this.suppressedKeys.has(event.keyCode)) return;
     this.keys.add(event.keyCode);
     this.keyboardMovement();
   }
@@ -74,10 +86,12 @@ export class DemoInput extends Component {
   private keyUp(event: EventKeyboard): void {
     if (event.keyCode === KeyCode.KEY_R) this.restartHeld = false;
     this.keys.delete(event.keyCode);
+    this.suppressedKeys.delete(event.keyCode);
     this.keyboardMovement();
   }
 
   private keyboardMovement(): void {
+    if (this.gameplayBlocked) { this.movement.set(0, 0); return; }
     if (this.touchId !== null) return;
     const held = (a: KeyCode, b: KeyCode): number => Number(this.keys.has(a) || this.keys.has(b));
     this.movement.set(held(KeyCode.KEY_D, KeyCode.ARROW_RIGHT) - held(KeyCode.KEY_A, KeyCode.ARROW_LEFT),
@@ -86,7 +100,7 @@ export class DemoInput extends Component {
   }
 
   private touchStart(event: EventTouch): void {
-    if (this.touchId !== null) return;
+    if (this.gameplayBlocked || this.touchId !== null) return;
     const point = event.getUILocation();
     const size = view.getVisibleSize();
     const origin = view.getVisibleOrigin();

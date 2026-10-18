@@ -1,6 +1,7 @@
 import { _decorator, BlockInputEvents, Button, Color, Component, EventTouch, Graphics, Label, Node, UITransform } from 'cc';
 import { combatPresetIds, CombatPresetId, createCombatPreset } from '../config/combat-presets.prototype';
 import { DemoEvent, DemoSnapshot, PIXELS_PER_UNIT } from '../core/demo-model';
+import { uiButton } from './GrowthChoicePanel';
 
 const { ccclass } = _decorator;
 interface Transient { node: Node; start: number; end: number; y: number; }
@@ -14,18 +15,19 @@ export class CombatEffectPanel extends Component {
   private serial = 0;
   private key(handle: { id: number; generation: number }): string { return `${handle.generation}:${handle.id}`; }
 
-  initialize(parent: Node, onPreset: (id: CombatPresetId) => void): void {
+  initialize(parent: Node, onPreset: (id: CombatPresetId) => void, onGrowth?: () => void): void {
     this.root = new Node('效果测试面板'); this.root.layer = parent.layer; parent.addChild(this.root);
     combatPresetIds.forEach((id, i) => {
       const button = new Node('预设按钮'); button.layer = this.root!.layer; this.root!.addChild(button);
-      button.addComponent(UITransform).setContentSize(180, 40);
-      button.name = `预设-${id}`; button.setPosition(-400 + i * 200, 255);
-      const g = button.addComponent(Graphics); g.fillColor = new Color(28, 67, 90, 240); g.roundRect(-90, -20, 180, 40, 7); g.fill();
+      button.addComponent(UITransform).setContentSize(160, 40);
+      button.name = `预设-${id}`; button.setPosition(-450 + i * 180, 255);
+      const g = button.addComponent(Graphics); g.fillColor = new Color(28, 67, 90, 240); g.roundRect(-80, -20, 160, 40, 7); g.fill();
       // 背景先绘制，文字单独放在其上方。
-      const caption = this.label(createCombatPreset(id).name, 180, 40, 22); button.addChild(caption);
+      const caption = this.label(createCombatPreset(id).name, 160, 40, 21); button.addChild(caption);
       button.addComponent(Button); button.addComponent(BlockInputEvents);
       button.on(Node.EventType.TOUCH_END, (event: EventTouch) => { event.propagationStopped = true; onPreset(id); });
     });
+    if (onGrowth) uiButton(this.root, '成长试玩', 160, 40, onGrowth).setPosition(450, 255);
   }
 
   consume(events: readonly DemoEvent[]): void {
@@ -34,7 +36,7 @@ export class CombatEffectPanel extends Component {
       if (event.type === 'hit') {
         const position = this.positions.get(this.key(event.target)); if (!position) continue;
         const source = { direct: '直击', split: '追踪', bounce: '弹射', explosion: '爆裂', element: '元素', 'damage-over-time': '灼烧', synergy: '组合' }[event.source.sourceKind];
-        const node = this.label(`${source}${event.critical ? '暴击' : ''} ${event.damage.toFixed(1)}`, 170, 25, 18);
+        const node = this.label(`${event.effectName ?? source}${event.critical ? '暴击' : ''} ${event.damage.toFixed(1)}`, 210, 25, 18);
         const x = position.x * PIXELS_PER_UNIT, y = position.y * PIXELS_PER_UNIT + 40 + (this.serial++ % 4) * 22;
         node.setPosition(x, y); this.transients.push({ node, start: event.elapsedSeconds, end: event.elapsedSeconds + 0.8, y });
       }
