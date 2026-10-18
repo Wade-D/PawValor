@@ -20,7 +20,7 @@ test('只开放通用分类，满级和前置不符会被过滤，顺序稳定�
   build.talentLevels['attack-up'] = 5;
   config.talents[1].prerequisites = [{ kind:'route', routeId:'wanjian' }];
   const eligible = api.eligibleTalents(config, build);
-  assert.deepEqual(eligible.map(t => t.id), config.talents.filter(t => t.category === 'general').slice(2).map(t => t.id));
+  assert.deepEqual(eligible.map(t => t.id), config.talents.filter(t => t.category === 'general').slice(2).filter(t => t.id !== 'area-size-up').map(t => t.id));
   assert.deepEqual(api.evaluateTalent(config.talents[0], config, build).reasons, ['max-level']);
   assert.deepEqual(api.evaluateTalent(config.talents[1], config, build).reasons, ['prerequisites']);
   assert.ok(api.evaluateTalent(config.talents.at(-1), config, build).reasons.includes('unsupported-category'));

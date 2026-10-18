@@ -1,7 +1,8 @@
 import type { BuildState, GrowthOption, GrowthState, UltimateEvolutionEvent } from './build';
-import type { GameConfig } from './config';
+import type { GameConfig, TalentCategory } from './config';
 import type { RandomSource } from './contracts';
 import { eligibleTalents } from './growth-candidates';
+import { talentRank } from './build-prerequisites';
 import { drawOrdinaryOptions, validateGrowthRewards } from './growth-draw';
 import { applyExperience, experienceThresholds } from './growth-experience';
 import type { ExperienceProgress, GrowthCommandResult, GrowthRejection, GrowthRewardConfig, GrowthSessionOptions, GrowthSnapshot, GrowthToken } from './growth-model';
@@ -43,6 +44,7 @@ function reject(reason: GrowthRejection): GrowthCommandResult {
 
 export class GrowthSession {
   private readonly config: GameConfig;
+  private readonly enabledCategories: readonly TalentCategory[];
   private readonly heroId: string;
   private readonly thresholds: readonly number[];
   private readonly rewards: readonly GrowthRewardConfig[];
@@ -62,6 +64,8 @@ export class GrowthSession {
     assertRandom(options.random);
     validateGrowthRewards(options.rewards);
     this.config = copy(config);
+    this.enabledCategories = [...(options.enabledTalentCategories ?? ['general'])];
+    if (this.enabledCategories.some(c => !['general', 'enchantment', 'secondary-mechanism'].includes(c))) throw new Error('启用的天赋分类无效。');
     this.heroId = options.heroId;
     this.thresholds = experienceThresholds(options.levelCosts);
     this.rewards = copy(options.rewards);
@@ -94,6 +98,11 @@ export class GrowthSession {
       const option = choice.options.find(item => item.id === optionId);
       if (!option) return reject('invalid-option');
       if (option.kind === 'talent') {
+        const talent = this.config.talents.find(t => t.id === option.talentId)!;
+        if (talentRank(staged.build, option.talentId) === 0) {
+          if (talent.category === 'enchantment') staged.build.enchantmentIds.push(talent.id);
+          if (talent.category === 'secondary-mechanism') staged.build.secondaryMechanismIds.push(talent.id);
+        }
         const ranks = staged.build.talentLevels;
         const previous = Object.prototype.hasOwnProperty.call(ranks, option.talentId) ? ranks[option.talentId] : 0;
         // defineProperty 避免 __proto__ 等配置标识触发普通对象的原型写入器。
@@ -165,7 +174,7 @@ export class GrowthSession {
   private drawOptions(build: BuildState): GrowthOption[] {
     // 外部随机回调可读取快照，但不能重置或再次提交当前事务。
     this.drawing = true;
-    try { return [...drawOrdinaryOptions(eligibleTalents(this.config, build), this.random, this.rewards)]; }
+    try { return [...drawOrdinaryOptions(eligibleTalents(this.config, build, { enabledCategories: this.enabledCategories }), this.random, this.rewards)]; }
     finally { this.drawing = false; }
   }
 

@@ -73,6 +73,7 @@ export type BuildPrerequisite =
   | { kind: 'synergy'; synergyId: string };
 
 export type TalentCategory = 'general' | 'secondary-mechanism' | 'enchantment';
+export type CombatCapability = 'area-attack';
 
 export interface TalentConfig {
   id: string;
@@ -84,6 +85,7 @@ export interface TalentConfig {
   exclusiveTags: readonly string[];
   effectIds: readonly string[];
   weight: number;
+  requiredCapabilities?: readonly CombatCapability[];
 }
 
 export type AttackPattern = 'single' | 'multishot' | 'chain' | 'returning' | 'orbiting' | 'homing' | 'explosion' | 'area';
@@ -105,6 +107,7 @@ export type EffectConfig =
       projectileCount: number;
       damageMultiplier: number;
       triggerPolicyId: string;
+      execution?: { kind: 'extra-projectile'; trigger: 'on-fire'; lateralOffset: number };
     }
   | {
       id: string;
@@ -113,6 +116,16 @@ export type EffectConfig =
       damageMultiplier: number;
       durationSeconds: number;
       triggerPolicyId: string;
+      execution?: { kind: 'burn'; tickIntervalSeconds: number } | { kind: 'slow-hit'; slowRatio: number } | { kind: 'bonus-hit' };
+    }
+  | {
+      id: string;
+      kind: 'secondary-mechanism';
+      trigger: 'on-direct-hit';
+      damageMultiplier: number;
+      triggerPolicyId: string;
+      inheritance: ProjectileInheritance;
+      behavior: { kind: 'homing'; projectileId: string } | { kind: 'explosion'; radius: number };
     }
   | {
       id: string;
@@ -152,7 +165,7 @@ export interface SynergyConfig {
 
 /** Explicit experimental policy; neither boolean is a production default. */
 export interface ElementPolicy {
-  usage: 'test-only';
+  usage: 'test-only' | 'confirmed';
   maxEnchantments: 2;
   maxSecondaryMechanisms: 2;
   innateElementCounts: boolean;

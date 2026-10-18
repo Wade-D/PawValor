@@ -147,11 +147,11 @@ test('the example synergy declares real prerequisites and next-level test-only a
   assert.ok(synergy.effectIds.length > 0);
 });
 
-test('all numbers and experimental element decisions are explicitly prototype data', () => {
+test('原型数值保留测试标记，槽位规则已确认', () => {
   const data = config();
   assert.equal(data.calibration, 'prototype');
   assert.deepEqual(data.elementPolicy, {
-    usage: 'test-only', maxEnchantments: 2, maxSecondaryMechanisms: 2,
+    usage: 'confirmed', maxEnchantments: 2, maxSecondaryMechanisms: 2,
     innateElementCounts: false, enchantmentsUseSecondarySlots: false,
     resonanceEffectIds: ['fire-resonance', 'ice-resonance', 'lightning-resonance'],
   });

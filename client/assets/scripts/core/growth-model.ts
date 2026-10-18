@@ -1,4 +1,5 @@
 import type { BuildState, GrowthRewardId, GrowthState, UltimateEvolutionEvent } from './build';
+import type { TalentCategory } from './config';
 import type { RandomSource } from './contracts';
 
 export interface GrowthToken { sessionId: number; generation: number; revision: number }
@@ -28,6 +29,7 @@ export interface GrowthRewardConfig {
 }
 
 export interface GrowthSessionOptions {
+  enabledTalentCategories?: readonly TalentCategory[];
   heroId: string;
   random: RandomSource;
   levelCosts: readonly number[];
