@@ -1,3 +1,8 @@
+import type { BuildState } from './build';
+import type { GrowthReadonly } from './growth-model';
+import type { CompiledCombatBuild, DamageRequest, DirectHitContext } from './combat-model';
+import { compileCombatBuild } from './combat-build';
+import { CombatTriggerGuard } from './combat-trigger';
 import type { ProjectileConfig, WeaponConfig, GameConfig } from './config';
 import type { AttackSource, EntityHandle, RandomSource, RunState, Vec2 } from './contracts';
 import { validateGameConfig } from './validate-config';
@@ -14,6 +19,12 @@ interface EnemyState {
 }
 
 interface SwordState {
+  source?: AttackSource;
+  payload?: { compiled: CompiledCombatBuild; damage: number; range: number; size: Vec2; pierce: number; critChance: number; critMultiplier: number; projectile: ProjectileConfig };
+  hitTargets?: Set<string>;
+  kind?: 'direct' | 'homing';
+  excludedTarget?: EntityHandle;
+  target?: EntityHandle;
   handle: EntityHandle;
   attacker: EntityHandle;
   attackId: number;
@@ -40,6 +51,13 @@ export class SeededRandom implements RandomSource {
 }
 
 export class DemoWorld {
+  private readonly config: GameConfig;
+  private compiled: CompiledCombatBuild | null = null;
+  private readonly initialCompiled: CompiledCombatBuild | null;
+  private readonly criticalRandom: SeededRandom;
+  private readonly triggerGuard = new CombatTriggerGuard();
+  private readonly baseHealth: number;
+  private readonly baseMoveSpeed: number;
   private state: RunState = 'idle';
   private elapsedSeconds = 0;
   private position: Vec2 = { x: 0, y: 0 };
@@ -54,8 +72,8 @@ export class DemoWorld {
   private kills = 0;
   private level: 1 | 2 = 1;
   private xp = 0;
-  private readonly maxHealth: number;
-  private readonly moveSpeed: number;
+  private maxHealth: number;
+  private moveSpeed: number;
   private readonly random: SeededRandom;
   private readonly tuning: DemoTuning;
   private health: number;
@@ -69,16 +87,23 @@ export class DemoWorld {
     try { issues = validateGameConfig(config); }
     catch { throw new Error('Invalid config: malformed GameConfig structure.'); }
     if (issues.length) throw new Error(`Invalid config: ${issues.map(issue => `${issue.path}: ${issue.message}`).join('; ')}`);
+    this.config = JSON.parse(JSON.stringify(config)) as GameConfig;
     const hero = config.heroes.find(item => item.id === 'raine');
     if (!hero) throw new Error('Invalid config: DemoWorld requires hero raine.');
     const weapon = config.weapons.find(item => item.id === hero.weaponId)!;
     this.weapon = { ...weapon };
     this.projectile = { ...config.projectiles.find(item => item.id === weapon.projectileId)! };
     this.damage = weapon.baseDamage + hero.baseStats.attackPower * weapon.attackPowerScaling;
-    this.maxHealth = hero.baseStats.maxHealth;
+    this.baseHealth = hero.baseStats.maxHealth;
+    this.baseMoveSpeed = hero.baseStats.moveSpeed;
+    this.maxHealth = this.baseHealth;
     this.health = this.maxHealth;
     this.moveSpeed = hero.baseStats.moveSpeed;
     this.random = new SeededRandom(options.seed ?? 1);
+    this.criticalRandom = new SeededRandom(options.effects?.criticalSeed ?? (((options.seed ?? 1) ^ 0x9e3779b9) >>> 0));
+    this.initialCompiled = options.effects ? compileCombatBuild(this.config, options.effects.build) : null;
+    this.compiled = this.initialCompiled;
+    if (this.compiled) { this.maxHealth = this.compiled.stats.maxHealth; this.health = this.maxHealth; this.moveSpeed = this.compiled.stats.moveSpeed; }
     this.tuning = { ...DEFAULT_DEMO_TUNING, ...options.tuning };
     if (!Number.isInteger(this.tuning.maxEnemies) || this.tuning.maxEnemies <= 0) {
       throw new Error('tuning.maxEnemies must be a positive integer.');
@@ -109,6 +134,11 @@ export class DemoWorld {
   resume(): void { if (this.state === 'paused') this.state = 'running'; }
   reset(): void {
     this.state = 'idle';
+    this.compiled = this.initialCompiled;
+    this.maxHealth = this.compiled?.stats.maxHealth ?? this.baseHealth;
+    this.moveSpeed = this.compiled?.stats.moveSpeed ?? this.baseMoveSpeed;
+    this.triggerGuard.reset();
+    this.criticalRandom.reset();
     this.elapsedSeconds = 0;
     this.position = { x: 0, y: 0 };
     this.health = this.maxHealth;
@@ -162,9 +192,10 @@ export class DemoWorld {
       if (Math.hypot(this.position.x - enemy.position.x, this.position.y - enemy.position.y) > contactRadius + 1e-10
         || this.elapsedSeconds + 1e-10 < enemy.nextContactSeconds) continue;
       enemy.nextContactSeconds = this.elapsedSeconds + this.tuning.contactIntervalSeconds;
-      this.health = Math.max(0, this.health - this.tuning.contactDamage);
+      const contactDamage = this.tuning.contactDamage * (1 - (this.compiled?.stats.damageReduction ?? 0));
+      this.health = Math.max(0, this.health - contactDamage);
       events.push({ type: 'heroDamaged', elapsedSeconds: this.elapsedSeconds,
-        attacker: { ...enemy.handle }, target: { id: 1, generation: this.generation }, damage: this.tuning.contactDamage });
+        attacker: { ...enemy.handle }, target: { id: 1, generation: this.generation }, damage: contactDamage });
       if (this.health === 0) {
         this.state = 'ended';
         events.push({ type: 'runEnded', elapsedSeconds: this.elapsedSeconds, reason: 'defeat' });
@@ -198,70 +229,97 @@ export class DemoWorld {
     return { rootAttackId: attackId, sourceKind: 'direct', depth: 0 };
   }
 
+  applyBuild(build: GrowthReadonly<BuildState>, expectedGeneration: number): void {
+    if ((this.state !== 'idle' && this.state !== 'paused') || expectedGeneration !== this.generation) throw new Error('构筑只能在当前局次的待开始或暂停状态应用。');
+    const compiled = compileCombatBuild(this.config, build);
+    const ratio = this.health / this.maxHealth;
+    this.compiled = compiled; this.maxHealth = compiled.stats.maxHealth;
+    this.health = ratio * this.maxHealth; this.moveSpeed = compiled.stats.moveSpeed;
+  }
+
   private launchSword(events: DemoEvent[]): void {
     if (this.elapsedSeconds + 1e-10 < this.nextAttackSeconds) return;
-    const candidates = this.enemies.filter(enemy => enemy.health > 0
-      && enemy.handle.generation === this.generation
-      && Math.hypot(enemy.position.x - this.position.x, enemy.position.y - this.position.y) <= this.weapon.range);
+    const range = this.compiled?.stats.range ?? this.weapon.range;
+    const candidates = this.enemies.filter(enemy => enemy.health > 0 && enemy.handle.generation === this.generation
+      && Math.hypot(enemy.position.x - this.position.x, enemy.position.y - this.position.y) <= range);
     candidates.sort((a, b) => Math.hypot(a.position.x - this.position.x, a.position.y - this.position.y)
       - Math.hypot(b.position.x - this.position.x, b.position.y - this.position.y) || a.handle.id - b.handle.id);
-    const target = candidates[0];
-    if (!target) return;
-    const dx = target.position.x - this.position.x;
-    const dy = target.position.y - this.position.y;
-    const length = Math.hypot(dx, dy);
-    const direction = length === 0 ? { x: 1, y: 0 } : { x: dx / length, y: dy / length };
-    const attackId = this.nextAttackId++;
-    const attacker = { id: 1, generation: this.generation };
-    this.swords.push({ handle: { id: this.nextEntityId++, generation: this.generation },
-      attacker, attackId, position: { ...this.position }, direction, age: 0, distance: 0 });
-    this.nextAttackSeconds = this.elapsedSeconds + this.weapon.attackIntervalSeconds;
-    events.push({ type: 'attack', elapsedSeconds: this.elapsedSeconds, attackId,
-      attacker: { ...attacker }, source: this.source(attackId), projectileId: this.projectile.id,
-      origin: { ...this.position }, direction: { ...direction } });
+    const target = candidates[0]; if (!target) return;
+    const dx = target.position.x - this.position.x; const dy = target.position.y - this.position.y;
+    const length = Math.hypot(dx, dy); const direction = length === 0 ? { x: 1, y: 0 } : { x: dx / length, y: dy / length };
+    const rootId = this.nextAttackId;
+    this.emitSword(this.projectile, direction, { ...this.position }, 1, rootId, events);
+    for (const extra of this.compiled?.extraProjectiles ?? []) {
+      const origin = clampToArena({ x: this.position.x - direction.y * extra.lateralOffset, y: this.position.y + direction.x * extra.lateralOffset });
+      this.emitSword(extra.projectile, direction, origin, extra.damageMultiplier, rootId, events);
+    }
+    this.nextAttackSeconds = this.elapsedSeconds + (this.compiled?.stats.attackIntervalSeconds ?? this.weapon.attackIntervalSeconds);
+  }
+
+  private emitSword(projectile: ProjectileConfig, direction: Vec2, origin: Vec2, multiplier: number, rootId: number, events: DemoEvent[]): void {
+    const attackId = this.nextAttackId++; const attacker = { id: 1, generation: this.generation };
+    const sword: SwordState = { handle: { id: this.nextEntityId++, generation: this.generation }, attacker, attackId,
+      position: origin, direction: { ...direction }, age: 0, distance: 0 };
+    if (this.compiled) {
+      const c = this.compiled; const inherits = projectile.inheritance.stats;
+      sword.source = { rootAttackId: rootId, sourceKind: 'direct', depth: 0 }; sword.kind = 'direct'; sword.hitTargets = new Set();
+      sword.payload = { compiled: c, damage: (inherits.includes('attackDamage') ? c.stats.attackDamage : c.baseDamage) * multiplier,
+        range: inherits.includes('range') ? c.stats.range : this.weapon.range,
+        size: { x: projectile.size.x * (inherits.includes('projectileSize') ? c.stats.projectileSize.x / this.projectile.size.x : 1),
+          y: projectile.size.y * (inherits.includes('projectileSize') ? c.stats.projectileSize.y / this.projectile.size.y : 1) },
+        pierce: projectile.pierceCount + (inherits.includes('pierceCount') ? c.stats.pierceCount - this.projectile.pierceCount : 0),
+        critChance: c.stats.critChance, critMultiplier: c.stats.critDamageMultiplier, projectile };
+      if (!Number.isFinite(sword.payload.damage)) throw new Error('弹体伤害溢出。');
+    }
+    this.swords.push(sword);
+    events.push({ type: 'attack', elapsedSeconds: this.elapsedSeconds, attackId, attacker: { ...attacker },
+      source: sword.source ? { ...sword.source } : this.source(attackId), projectileId: projectile.id, origin: { ...origin }, direction: { ...direction } });
   }
 
   private advanceSwords(dt: number, events: DemoEvent[]): void {
     const remaining: SwordState[] = [];
     for (const sword of this.swords) {
       if (sword.attacker.generation !== this.generation || sword.handle.generation !== this.generation) continue;
-      const duration = Math.min(dt, Math.max(0, this.projectile.lifetimeSeconds - sword.age));
-      const travel = Math.min(this.projectile.speed * duration, Math.max(0, this.weapon.range - sword.distance));
-      const end = { x: sword.position.x + sword.direction.x * travel,
-        y: sword.position.y + sword.direction.y * travel };
-      let hit: EnemyState | undefined;
-      let first = Infinity;
+      const projectile = sword.payload?.projectile ?? this.projectile;
+      const duration = Math.min(dt, Math.max(0, projectile.lifetimeSeconds - sword.age));
+      const travel = Math.min(projectile.speed * duration, Math.max(0, (sword.payload?.range ?? this.weapon.range) - sword.distance));
+      const end = { x: sword.position.x + sword.direction.x * travel, y: sword.position.y + sword.direction.y * travel };
+      const collisions: { enemy: EnemyState; fraction: number }[] = [];
       for (const enemy of this.enemies) {
-        if (enemy.health <= 0 || enemy.handle.generation !== this.generation) continue;
-        const fraction = segmentCircleHit(sword.position, end, enemy.position, this.tuning.enemyRadius);
-        if (fraction !== null && (fraction < first || (fraction === first && enemy.handle.id < hit!.handle.id))) {
-          hit = enemy; first = fraction;
-        }
+        if (enemy.health <= 0 || enemy.handle.generation !== this.generation || sword.hitTargets?.has(`${enemy.handle.generation}:${enemy.handle.id}`)) continue;
+        const fraction = segmentCircleHit(sword.position, end, enemy.position, this.tuning.enemyRadius + (sword.payload ? sword.payload.size.x / 2 : 0));
+        if (fraction !== null) collisions.push({ enemy, fraction });
       }
-      if (hit) {
-        const target = { ...hit.handle };
-        events.push({ type: 'hit', elapsedSeconds: this.elapsedSeconds, attackId: sword.attackId,
-          attacker: { ...sword.attacker }, target, source: this.source(sword.attackId), damage: this.damage, critical: false });
-        hit.health = Math.max(0, hit.health - this.damage);
-        if (hit.health === 0) {
-          this.enemies = this.enemies.filter(enemy => enemy !== hit);
-          this.kills++;
-          events.push({ type: 'kill', elapsedSeconds: this.elapsedSeconds, attackId: sword.attackId,
-            killer: { ...sword.attacker }, target: { ...target }, source: this.source(sword.attackId) });
-          const orb = { handle: { id: this.nextEntityId++, generation: this.generation },
-            position: { ...hit.position }, value: this.tuning.xpPerOrb };
-          this.orbs.push(orb);
-          events.push({ type: 'xpDrop', elapsedSeconds: this.elapsedSeconds,
-            handle: { ...orb.handle }, position: { ...orb.position }, value: orb.value });
-        }
-        continue;
+      collisions.sort((a,b) => a.fraction - b.fraction || a.enemy.handle.id - b.enemy.handle.id);
+      let consumed = false;
+      for (const {enemy: hit} of collisions) {
+        if (hit.health <= 0) continue;
+        const critical = !!sword.payload && sword.kind !== 'homing' && this.criticalRandom.next() < sword.payload.critChance;
+        const damage = (sword.payload?.damage ?? this.damage) * (critical ? sword.payload!.critMultiplier : 1);
+        this.dealDamage({ attackId: sword.attackId, attacker: sword.attacker, target: hit.handle,
+          source: sword.source ?? this.source(sword.attackId), damage, critical }, events);
+        sword.hitTargets?.add(`${hit.handle.generation}:${hit.handle.id}`);
+        if (!sword.payload || sword.payload.pierce <= 0) { consumed = true; break; }
+        sword.payload.pierce--;
       }
-      sword.position = end;
-      sword.age += duration;
-      sword.distance += travel;
-      if (sword.age + 1e-10 < this.projectile.lifetimeSeconds && sword.distance + 1e-10 < this.weapon.range) remaining.push(sword);
+      sword.position = end; sword.age += duration; sword.distance += travel;
+      if (!consumed && sword.age + 1e-10 < projectile.lifetimeSeconds && sword.distance + 1e-10 < (sword.payload?.range ?? this.weapon.range)) remaining.push(sword);
     }
     this.swords = remaining;
+  }
+
+  private dealDamage(request: DamageRequest, events: DemoEvent[]): void {
+    if (!Number.isFinite(request.damage) || request.damage < 0) throw new Error('伤害必须为有限非负数。');
+    const enemy = this.enemies.find(e => e.health > 0 && e.handle.id === request.target.id && e.handle.generation === request.target.generation);
+    if (!enemy || enemy.handle.generation !== this.generation || request.attacker.generation !== this.generation) return;
+    const target = { ...enemy.handle }; const source = { ...request.source }; const attacker = { ...request.attacker };
+    events.push({ type: 'hit', elapsedSeconds: this.elapsedSeconds, attackId: request.attackId, attacker, target, source, damage: request.damage, critical: request.critical });
+    enemy.health = Math.max(0, enemy.health - request.damage);
+    if (enemy.health > 0) return;
+    this.enemies = this.enemies.filter(e => e !== enemy); this.kills++;
+    events.push({ type: 'kill', elapsedSeconds: this.elapsedSeconds, attackId: request.attackId, killer: { ...attacker }, target: { ...target }, source: { ...source } });
+    const orb = { handle: { id: this.nextEntityId++, generation: this.generation }, position: { ...enemy.position }, value: this.tuning.xpPerOrb };
+    this.orbs.push(orb); events.push({ type: 'xpDrop', elapsedSeconds: this.elapsedSeconds, handle: { ...orb.handle }, position: { ...orb.position }, value: orb.value });
   }
 
   private addEnemy(position: Vec2): EnemyState {
@@ -293,10 +351,11 @@ export class DemoWorld {
 
   snapshot(): DemoSnapshot {
     return {
+      ...(this.compiled ? { effects: JSON.parse(JSON.stringify({ build: this.compiled.build, stats: this.compiled.stats, elements: this.compiled.elements })) } : {}),
       state: this.state, elapsedSeconds: this.elapsedSeconds,
       hero: { handle: { id: 1, generation: this.generation }, position: { ...this.position }, health: this.health, maxHealth: this.maxHealth },
-      enemies: this.enemies.map((enemy): DemoEnemySnapshot => ({ handle: { ...enemy.handle }, position: { ...enemy.position }, health: enemy.health })),
-      projectiles: this.swords.map(sword => ({ handle: { ...sword.handle }, position: { ...sword.position }, direction: { ...sword.direction } })),
+      enemies: this.enemies.map((enemy): DemoEnemySnapshot => ({ handle: { ...enemy.handle }, position: { ...enemy.position }, health: enemy.health, ...(this.compiled ? { maxHealth: this.tuning.enemyHealth } : {}) })),
+      projectiles: this.swords.map(sword => ({ handle: { ...sword.handle }, position: { ...sword.position }, direction: { ...sword.direction }, ...(sword.payload ? { kind: sword.kind, size: { ...sword.payload.size } } : {}) })),
       orbs: this.orbs.map(orb => ({ handle: { ...orb.handle }, position: { ...orb.position }, value: orb.value })),
       level: this.level, xp: this.xp, xpCapped: this.level === 2, kills: this.kills,
     };

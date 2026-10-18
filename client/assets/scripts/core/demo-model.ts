@@ -1,4 +1,7 @@
 import type { CombatEvent, EntityHandle, RunState, Vec2 } from './contracts';
+import type { BuildState } from './build';
+import type { GrowthReadonly } from './growth-model';
+import type { ResolvedCombatStats, ResolvedElement, CombatStatusSnapshot } from './combat-model';
 
 export const FIXED_STEP_SECONDS = 1 / 60;
 export const PIXELS_PER_UNIT = 64;
@@ -37,9 +40,13 @@ export interface DemoHeroSnapshot extends DemoEntitySnapshot {
 }
 export interface DemoEnemySnapshot extends DemoEntitySnapshot {
   readonly health: number;
+  readonly maxHealth?: number;
+  readonly statuses?: readonly CombatStatusSnapshot[];
 }
 export interface DemoProjectileSnapshot extends DemoEntitySnapshot {
   readonly direction: Vec2;
+  readonly kind?: 'direct' | 'homing';
+  readonly size?: Vec2;
 }
 export interface DemoOrbSnapshot extends DemoEntitySnapshot {
   readonly value: number;
@@ -55,8 +62,10 @@ export interface DemoSnapshot {
   readonly xp: number;
   readonly xpCapped: boolean;
   readonly kills: number;
+  readonly effects?: { readonly build: GrowthReadonly<BuildState>; readonly stats: ResolvedCombatStats; readonly elements: readonly ResolvedElement[] };
 }
 export type DemoEvent = CombatEvent
+  | { type: 'effectTriggered'; elapsedSeconds: number; effectId: string; effectName: string; source: import('./contracts').AttackSource; position: Vec2; radius?: number; target?: EntityHandle }
   | { type: 'enemySpawn'; elapsedSeconds: number; handle: EntityHandle; position: Vec2 }
   | { type: 'xpDrop'; elapsedSeconds: number; handle: EntityHandle; position: Vec2; value: number }
   | { type: 'xpPickup'; elapsedSeconds: number; handle: EntityHandle; value: number }
@@ -64,6 +73,7 @@ export type DemoEvent = CombatEvent
   | { type: 'heroDamaged'; elapsedSeconds: number; attacker: EntityHandle; target: EntityHandle; damage: number };
 
 export interface DemoWorldOptions {
+  effects?: { build: GrowthReadonly<BuildState>; criticalSeed?: number };
   seed?: number;
   tuning?: Partial<DemoTuning>;
   initialEnemyPositions?: readonly Vec2[];
