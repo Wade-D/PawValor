@@ -49,3 +49,10 @@ export interface UltimateEvolutionEvent {
   effectId: string;
   ultimateBehaviorEffectId: string;
 }
+
+export interface SynergyActivatedEvent {
+  type: 'synergyActivated';
+  targetLevel: number;
+  synergyId: string;
+  name: string;
+}
