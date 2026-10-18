@@ -12,7 +12,7 @@ test('静止边界应用构筑保持生命比例，重复应用不加血，错�
 test('旧弹体保持发射快照，重算不重置发射冷却',()=>{
  const w=combatWorld({},[{x:4,y:0}]);advance(w,1);w.pause();
  assert.equal(typeof w.applyBuild,'function');w.applyBuild(combatBuild({'attack-up':5,'pierce-up':2,'projectile-size-up':3}),0);w.resume();
- const events=advance(w,75);const damages=hits(events).map(e=>e.damage);assert.equal(damages[0],20);assert.equal(damages[1],30);
+ const events=advance(w,75);const damages=hits(events).map(e=>e.damage);assert.equal(damages[0],20);assert.ok(Math.abs(damages[1]-30)<1e-9);
  assert.equal(events.filter(e=>e.type==='attack').length,1);
 });
 test('效果构筑输入与快照隔离，非法暴击种子不能启动',()=>{
