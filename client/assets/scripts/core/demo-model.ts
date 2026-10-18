@@ -73,6 +73,7 @@ export type DemoEvent = CombatEvent
   | { type: 'heroDamaged'; elapsedSeconds: number; attacker: EntityHandle; target: EntityHandle; damage: number };
 
 export interface DemoWorldOptions {
+  experienceMode?: 'legacy' | 'external';
   effects?: { build: GrowthReadonly<BuildState>; criticalSeed?: number };
   seed?: number;
   tuning?: Partial<DemoTuning>;

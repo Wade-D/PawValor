@@ -19,3 +19,10 @@ snapshot.growth.pendingTargetLevels.push(3);
 // @ts-expect-error 独立奖励不能用天赋字段冒充。
 const invalid: GrowthOption = { kind: 'reward', id: 'reward:base-attack', talentId: 'attack' };
 void invalid;
+
+import type { GrowthRunSnapshot } from '../assets/scripts/core/growth-combat-model';
+declare const runSnapshot: GrowthRunSnapshot;
+compileCombatBuild(rainePrototypeConfig, runSnapshot.growth.build);
+eligibleTalents(rainePrototypeConfig, runSnapshot.growth.build);
+// @ts-expect-error 协调快照中的实体位置也必须只读。
+runSnapshot.world.hero.position.x = 99;

@@ -56,6 +56,7 @@ export class SeededRandom implements RandomSource {
 
 export class DemoWorld {
   private readonly config: GameConfig;
+  private readonly experienceMode: 'legacy' | 'external';
   private compiled: CompiledCombatBuild | null = null;
   private readonly initialCompiled: CompiledCombatBuild | null;
   private readonly criticalRandom: SeededRandom;
@@ -89,6 +90,8 @@ export class DemoWorld {
   private readonly initialEnemyPositions: readonly Vec2[] | undefined;
 
   constructor(config: GameConfig, options: DemoWorldOptions = {}) {
+    this.experienceMode = options.experienceMode ?? 'legacy';
+    if (!['legacy', 'external'].includes(this.experienceMode)) throw new Error('经验模式无效。');
     let issues;
     try { issues = validateGameConfig(config); }
     catch { throw new Error('Invalid config: malformed GameConfig structure.'); }
@@ -229,7 +232,8 @@ export class DemoWorld {
         remaining.push(orb);
         continue;
       }
-      const progress = applyDemoXp({ level: this.level, xp: this.xp }, orb.value, this.tuning.level2Xp);
+      const progress = this.experienceMode === 'legacy' ? applyDemoXp({ level: this.level, xp: this.xp }, orb.value, this.tuning.level2Xp)
+        : { level: this.level, xp: this.xp, leveledUp: false };
       this.level = progress.level;
       this.xp = progress.xp;
       events.push({ type: 'xpPickup', elapsedSeconds: this.elapsedSeconds, handle: { ...orb.handle }, value: orb.value });

@@ -6,7 +6,7 @@ import { talentRank } from './build-prerequisites';
 import { drawOrdinaryOptions, validateGrowthRewards } from './growth-draw';
 import { applyExperience, experienceThresholds } from './growth-experience';
 import { prepareSynergyLevel, queueEligibleSynergies } from './growth-synergies';
-import type { GrowthEvent, GrowthReadonly, ExperienceProgress, GrowthCommandResult, GrowthRejection, GrowthRewardConfig, GrowthSessionOptions, GrowthSnapshot, GrowthToken } from './growth-model';
+import type { GrowthEvent, ExperienceProgress, GrowthCommandResult, GrowthRejection, GrowthRewardConfig, GrowthSessionOptions, GrowthSnapshot, GrowthToken } from './growth-model';
 import { validateGameConfig } from './validate-config';
 
 interface SessionData extends ExperienceProgress {
