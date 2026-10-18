@@ -1,4 +1,4 @@
-import type { BuildState, GrowthState, UltimateEvolutionEvent } from './build';
+import type { BuildState, GrowthOption, GrowthState, UltimateEvolutionEvent } from './build';
 import type { GameConfig } from './config';
 import type { RandomSource } from './contracts';
 import { eligibleTalents } from './growth-candidates';
@@ -48,6 +48,7 @@ export class GrowthSession {
   private readonly rewards: readonly GrowthRewardConfig[];
   private readonly sessionId: number;
   private generation = 0;
+  private drawing = false;
   private random: RandomSource;
   private data: SessionData;
 
@@ -71,6 +72,7 @@ export class GrowthSession {
   }
 
   grantXp(amount: number): readonly UltimateEvolutionEvent[] {
+    this.assertMutationAllowed();
     const progress = applyExperience(this.data.xp, amount, this.thresholds);
     const staged = copy(this.data);
     for (let level = staged.earnedLevel + 1; level <= progress.earnedLevel; level++) {
@@ -83,6 +85,7 @@ export class GrowthSession {
   }
 
   select(token: GrowthToken, optionId: string): GrowthCommandResult {
+    this.assertMutationAllowed();
     const failure = this.checkToken(token);
     if (failure) return reject(failure);
     const choice = this.data.growth.pendingChoice!;
@@ -115,6 +118,7 @@ export class GrowthSession {
   }
 
   reroll(token: GrowthToken): GrowthCommandResult {
+    this.assertMutationAllowed();
     const failure = this.checkToken(token);
     if (failure) return reject(failure);
     const choice = this.data.growth.pendingChoice!;
@@ -122,7 +126,7 @@ export class GrowthSession {
     if (this.data.rerollsRemaining === 0) return reject('no-rerolls');
     const staged = copy(this.data);
     staged.growth.pendingChoice = { kind: 'ordinary', targetLevel: choice.targetLevel,
-      options: [...drawOrdinaryOptions(eligibleTalents(this.config, staged.build), this.random, this.rewards)] };
+      options: this.drawOptions(staged.build) };
     staged.rerollsRemaining--;
     this.issueToken(staged);
     this.data = staged;
@@ -135,6 +139,7 @@ export class GrowthSession {
   }
 
   reset(random: RandomSource): void {
+    this.assertMutationAllowed();
     assertRandom(random);
     const generation = increment(this.generation);
     this.random = random;
@@ -151,6 +156,17 @@ export class GrowthSession {
         secondaryMechanismIds: [], enchantmentIds: [], pendingSynergies: [], activeSynergyIds: [] },
       growth: { pendingTargetLevels: [], pendingChoice: null },
     };
+  }
+
+  private assertMutationAllowed(): void {
+    if (this.drawing) throw new Error('成长事务抽取期间不能重入修改会话。');
+  }
+
+  private drawOptions(build: BuildState): GrowthOption[] {
+    // 外部随机回调可读取快照，但不能重置或再次提交当前事务。
+    this.drawing = true;
+    try { return [...drawOrdinaryOptions(eligibleTalents(this.config, build), this.random, this.rewards)]; }
+    finally { this.drawing = false; }
   }
 
   private checkToken(token: GrowthToken): GrowthRejection | null {
@@ -189,7 +205,7 @@ export class GrowthSession {
         continue;
       } else {
         staged.growth.pendingChoice = { kind: 'ordinary', targetLevel: level,
-          options: [...drawOrdinaryOptions(eligibleTalents(this.config, staged.build), this.random, this.rewards)] };
+          options: this.drawOptions(staged.build) };
       }
       this.issueToken(staged);
     }
