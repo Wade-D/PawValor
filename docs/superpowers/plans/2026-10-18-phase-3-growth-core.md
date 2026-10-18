@@ -1,6 +1,6 @@
 # PawValor 第三阶段第一步：成长核心实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 实现可独立测试的经验、普通三选一、刷新与 Lv.3/7/11 固定进化成长核心。
 
@@ -70,11 +70,11 @@
 
 **Interfaces:** `experienceThresholds(levelCosts: readonly number[]): readonly number[]` 返回从 Lv.2 开始的累计门槛；`applyExperience(xp: number, amount: number, thresholds: readonly number[]): ExperienceProgress`。`growthPrototype` 导出只读对象，字段为 calibration、levelCosts、rewards；rewards 每项包含 id、中文 name/description、stat（attackDamage/maxHealth/moveSpeed）及 `baselineFraction: 0.01`。
 
-- [ ] 写失败测试：11 项 5 得到 `[5,10,15,20,25,30,35,40,45,50,55]`；4 点为 Lv.1，5 点为 Lv.2，55 点为 Lv.12；54 加 `Number.MAX_VALUE` 饱和为 55；0.25+0.25 得 0.5。测试变更阈值 `[1,2,3,4,5,6,7,8,9,10]`，累计 55 得 Lv.11。验证空/不足十项、0/负数/NaN/Infinity、累计溢出或舍入不递增曲线，以及非法经验输入被拒绝。
-- [ ] 执行 `npm.cmd test`，确认失败来自缺失新 API 或新契约，而非既有测试异常。
-- [ ] 实现共享类型、原型常量与上述两个函数；累计门槛必须有限且严格递增，经验饱和先比较剩余量以避免加法溢出；不复用或修改第二阶段 `applyDemoXp`。更新已有构筑夹具的新增字段和普通选项表示，新增类型测试验证奖励不能伪装天赋、快照嵌套字段不可赋值。
-- [ ] 执行 `npm.cmd run verify`；预期核心类型、边界及所有测试通过。按新文件清单检查导入后的 `.meta`，只暂存本任务文件。
-- [ ] 中文提交：`功能：定义成长构筑契约与经验规则`。
+- [x] 写失败测试：11 项 5 得到 `[5,10,15,20,25,30,35,40,45,50,55]`；4 点为 Lv.1，5 点为 Lv.2，55 点为 Lv.12；54 加 `Number.MAX_VALUE` 饱和为 55；0.25+0.25 得 0.5。测试变更阈值 `[1,2,3,4,5,6,7,8,9,10]`，累计 55 得 Lv.11。验证空/不足十项、0/负数/NaN/Infinity、累计溢出或舍入不递增曲线，以及非法经验输入被拒绝。
+- [x] 执行 `npm.cmd test`，确认失败来自缺失新 API 或新契约，而非既有测试异常。
+- [x] 实现共享类型、原型常量与上述两个函数；累计门槛必须有限且严格递增，经验饱和先比较剩余量以避免加法溢出；不复用或修改第二阶段 `applyDemoXp`。更新已有构筑夹具的新增字段和普通选项表示，新增类型测试验证奖励不能伪装天赋、快照嵌套字段不可赋值。
+- [x] 执行 `npm.cmd run verify`；预期核心类型、边界及所有测试通过。按新文件清单检查导入后的 `.meta`，只暂存本任务文件。
+- [x] 中文提交：`功能：定义成长构筑契约与经验规则`。
 
 ## Task 2：前置过滤与三选一抽取
 
@@ -82,11 +82,11 @@
 
 **Interfaces:** 消费 Task 1 的 `GrowthOption` 与 `BuildState`。导出 `meetsPrerequisites(requirements: readonly BuildPrerequisite[], build: Readonly<BuildState>): boolean`；`evaluateTalent(talent: TalentConfig, config: GameConfig, build: Readonly<BuildState>): { eligible: boolean; reasons: readonly TalentRejection[] }`，其中 `TalentRejection = 'unsupported-category' | 'prerequisites' | 'max-level' | 'exclusive'`；`eligibleTalents(config: GameConfig, build: Readonly<BuildState>): readonly TalentConfig[]`；`drawOrdinaryOptions(candidates: readonly TalentConfig[], random: RandomSource, rewards: readonly GrowthRewardConfig[]): readonly GrowthOption[]` 固定返回三项，不改输入。
 
-- [ ] 写失败测试：逐一验证 hero/talent/route/branch/synergy 前置和 AND 关系；满级、分类与互斥排除，自身升级允许；过滤前后随机调用计数均为零。候选结果顺序与配置一致。
-- [ ] 写失败测试：权重 `[1,3]` 的边界随机数 0、0.249999、0.25、接近 1 确认先抽对应区间；四个正权重天赋选三项且不重复；零权重永不抽中；负数/非有限权重明确拒绝；`Number.MAX_VALUE` 权重组合不溢出；固定序列结果一致。候选足够时不混入奖励。
-- [ ] 写失败测试：0/1/2 个正权重候选分别补 3/2/1 种不同奖励；保留全部可抽天赋；补齐等概率不放回且名称中文；同一个候选 ID 重复输入、随机数 -0.1/1/NaN/Infinity 被拒绝，输入数组不变。测试辅助模块导出 `fixtureConfig(): GameConfig`（运行时为深复制）与 `sequenceRandom(values)`（返回 random 与调用次数读取器）。
-- [ ] 执行 `npm.cmd test`，确认上述失败，再实现接口。抽取每轮用当前最大权重归一化后求和，按配置顺序遍历区间，移除抽中项后重新归一化；舍入边界回退到最后一个正权重项。奖励数据由测试/调用方传入原型表；不在过滤层读取随机源。拒绝缺项、重复 ID、未知 ID、空中文显示字段或数值/属性与规定不匹配的奖励表，并添加对应失败测试。
-- [ ] 执行 `npm.cmd run verify` 与任务文件差异检查，通过后精确暂存并中文提交：`功能：实现天赋前置过滤与三选一抽取`。
+- [x] 写失败测试：逐一验证 hero/talent/route/branch/synergy 前置和 AND 关系；满级、分类与互斥排除，自身升级允许；过滤前后随机调用计数均为零。候选结果顺序与配置一致。
+- [x] 写失败测试：权重 `[1,3]` 的边界随机数 0、0.249999、0.25、接近 1 确认先抽对应区间；四个正权重天赋选三项且不重复；零权重永不抽中；负数/非有限权重明确拒绝；`Number.MAX_VALUE` 权重组合不溢出；固定序列结果一致。候选足够时不混入奖励。
+- [x] 写失败测试：0/1/2 个正权重候选分别补 3/2/1 种不同奖励；保留全部可抽天赋；补齐等概率不放回且名称中文；同一个候选 ID 重复输入、随机数 -0.1/1/NaN/Infinity 被拒绝，输入数组不变。测试辅助模块导出 `fixtureConfig(): GameConfig`（运行时为深复制）与 `sequenceRandom(values)`（返回 random 与调用次数读取器）。
+- [x] 执行 `npm.cmd test`，确认上述失败，再实现接口。抽取每轮用当前最大权重归一化后求和，按配置顺序遍历区间，移除抽中项后重新归一化；舍入边界回退到最后一个正权重项。奖励数据由测试/调用方传入原型表；不在过滤层读取随机源。拒绝缺项、重复 ID、未知 ID、空中文显示字段或数值/属性与规定不匹配的奖励表，并添加对应失败测试。
+- [x] 执行 `npm.cmd run verify` 与任务文件差异检查，通过后精确暂存并中文提交：`功能：实现天赋前置过滤与三选一抽取`。
 
 ## Task 3：串行成长会话与固定进化
 
@@ -94,12 +94,12 @@
 
 **Interfaces:** 消费任务 1、2 接口和现有 `validateGameConfig`。导出 `class GrowthSession`：`constructor(config: GameConfig, options: GrowthSessionOptions)`、`grantXp(amount: number): readonly UltimateEvolutionEvent[]`、`select(token: GrowthToken, optionId: string): GrowthCommandResult`、`reroll(token: GrowthToken): GrowthCommandResult`、`snapshot(): GrowthSnapshot`、`reset(random: RandomSource): void`。新会话构筑等级 1、无路线/分支/终极、奖励次数全零、队列空，刷新数来自配置。
 
-- [ ] 写失败测试：grantXp(5) 出现 Lv.2 普通选择但构筑仍为 Lv.1；有效选择才升级并增加天赋等级或奖励次数；非当前卡拒绝。pendingChoice 保留在队首，选择提交才移除；待选期间增加经验只扩充目标队列。
-- [ ] 写失败测试：一次 grantXp(55) 后逐级选择，实际处理顺序为 `2,3,4,5,6,7,8,9,10,11,12`；Lv.3 三路线，Lv.7 当前路线两分支，Lv.11 无选卡且返回一次包含正确 effectId/ultimateBehaviorEffectId 的事件，下一选择为 Lv.12 普通卡。分别遍历三条路线与各自两分支，覆盖六条固定进化路径。
-- [ ] 写失败测试：刷新两次后拒绝第三次；固定节点拒绝刷新且次数保留；随机源恒为零可重复抽到同样三张，仍更新版本并扣一次。创建清空组合示例的合法配置夹具，再将通用天赋 maxLevel 调为 1，避免原组合 minLevel 为 2 导致配置不合法；跨多个普通升级取同一种兜底，奖励次数增加但普通天赋不越级。
-- [ ] 写失败测试：重复/旧版本令牌拒绝；无选择命令明确拒绝；终极不被 snapshot、重复提交或零经验重放。未知英雄、无效配置、非法曲线阻止初始化，grantXp 非法数值不改变会话。
-- [ ] 执行 `npm.cmd test` 确认失败，再实现会话。每条命令先在临时状态中完成经验、选择生成和自动节点推进，全部成功才提交内部状态及事件；普通操作错误返回中文类型化拒绝，配置/数值/随机源异常抛明确错误。按 `no-choice → stale-token → 节点/次数/选项校验` 的顺序拒绝命令。构筑变更只由会话负责。
-- [ ] 执行 `npm.cmd run verify`，通过后精确暂存并中文提交：`功能：实现串行升级与固定进化事务`。
+- [x] 写失败测试：grantXp(5) 出现 Lv.2 普通选择但构筑仍为 Lv.1；有效选择才升级并增加天赋等级或奖励次数；非当前卡拒绝。pendingChoice 保留在队首，选择提交才移除；待选期间增加经验只扩充目标队列。
+- [x] 写失败测试：一次 grantXp(55) 后逐级选择，实际处理顺序为 `2,3,4,5,6,7,8,9,10,11,12`；Lv.3 三路线，Lv.7 当前路线两分支，Lv.11 无选卡且返回一次包含正确 effectId/ultimateBehaviorEffectId 的事件，下一选择为 Lv.12 普通卡。分别遍历三条路线与各自两分支，覆盖六条固定进化路径。
+- [x] 写失败测试：刷新两次后拒绝第三次；固定节点拒绝刷新且次数保留；随机源恒为零可重复抽到同样三张，仍更新版本并扣一次。创建清空组合示例的合法配置夹具，再将通用天赋 maxLevel 调为 1，避免原组合 minLevel 为 2 导致配置不合法；跨多个普通升级取同一种兜底，奖励次数增加但普通天赋不越级。
+- [x] 写失败测试：重复/旧版本令牌拒绝；无选择命令明确拒绝；终极不被 snapshot、重复提交或零经验重放。未知英雄、无效配置、非法曲线阻止初始化，grantXp 非法数值不改变会话。
+- [x] 执行 `npm.cmd test` 确认失败，再实现会话。每条命令先在临时状态中完成经验、选择生成和自动节点推进，全部成功才提交内部状态及事件；普通操作错误返回中文类型化拒绝，配置/数值/随机源异常抛明确错误。按 `no-choice → stale-token → 节点/次数/选项校验` 的顺序拒绝命令。构筑变更只由会话负责。
+- [x] 执行 `npm.cmd run verify`，通过后精确暂存并中文提交：`功能：实现串行升级与固定进化事务`。
 
 ## Task 4：会话隔离、重置与异常事务保护
 
@@ -107,12 +107,12 @@
 
 **Interfaces:** 保持任务 3 API；令牌包含会话标识、局次、选择版本。snapshot 返回的数组、字典、令牌和终极记录都与内部对象分离；配置在构造时深复制。reset 接受调用方已创建/复位的随机源。
 
-- [ ] 写失败测试：两个实例均处 Lv.2、相同局次与版本时，互相令牌仍被拒绝；同实例重开后拒绝旧令牌；重置两次后清空经验、构筑、奖励、队列、终极并恢复刷新次数。相同初始随机序列重开后卡组一致。
-- [ ] 写失败测试：修改快照嵌套的 talentLevels、bonusRewardCounts、pendingChoice.options、固定节点数组、队列、token 和 ultimateEvolution，后续快照不变；修改构造传入的英雄/天赋/路线/分支/效果/前置/权重、经验列表及奖励表不影响会话。
-- [ ] 写失败测试：注入“抽取到第二张时返回 NaN/抛错”的随机源，reroll 失败后 snapshot 与之前完全相同，次数不扣；grantXp 初次建卡失败不增加经验；select 成功选项随后推进下一普通节点时随机失败，整个 select 回滚且旧令牌仍有效。允许外部随机源调用计数改变，不对此作回滚断言。
-- [ ] 写失败测试：零经验与封顶后继续获得经验不创建重复队列；待处理队列未清空时封顶仍逐级完成；用配置 ID `__proto__` 作为天赋 ID 时能准确记录和升级，字典原型不被修改。
-- [ ] 执行 `npm.cmd test` 确认缺陷对应失败，再补齐隔离与保护：模块内单调分配会话 ID，重置递增 generation，选择每次发布递增 revision；达到非安全整数前明确拒绝，避免复用。内部字典使用 Map 或无原型对象并通过自有键读取；对外依契约返回普通数据快照。
-- [ ] 执行 `npm.cmd run verify`，通过后精确暂存并中文提交：`功能：保护成长会话隔离与重置状态`。
+- [x] 写失败测试：两个实例均处 Lv.2、相同局次与版本时，互相令牌仍被拒绝；同实例重开后拒绝旧令牌；重置两次后清空经验、构筑、奖励、队列、终极并恢复刷新次数。相同初始随机序列重开后卡组一致。
+- [x] 写失败测试：修改快照嵌套的 talentLevels、bonusRewardCounts、pendingChoice.options、固定节点数组、队列、token 和 ultimateEvolution，后续快照不变；修改构造传入的英雄/天赋/路线/分支/效果/前置/权重、经验列表及奖励表不影响会话。
+- [x] 写失败测试：注入“抽取到第二张时返回 NaN/抛错”的随机源，reroll 失败后 snapshot 与之前完全相同，次数不扣；grantXp 初次建卡失败不增加经验；select 成功选项随后推进下一普通节点时随机失败，整个 select 回滚且旧令牌仍有效。允许外部随机源调用计数改变，不对此作回滚断言。
+- [x] 写失败测试：零经验与封顶后继续获得经验不创建重复队列；待处理队列未清空时封顶仍逐级完成；用配置 ID `__proto__` 作为天赋 ID 时能准确记录和升级，字典原型不被修改。
+- [x] 执行 `npm.cmd test` 确认缺陷对应失败，再补齐隔离与保护：模块内单调分配会话 ID，重置递增 generation，选择每次发布递增 revision；达到非安全整数前明确拒绝，避免复用。内部字典使用 Map 或无原型对象并通过自有键读取；对外依契约返回普通数据快照。
+- [x] 执行 `npm.cmd run verify`，通过后精确暂存并中文提交：`功能：保护成长会话隔离与重置状态`。
 
 ## Task 5：资产导入、使用文档与全分支验收
 
@@ -120,9 +120,9 @@
 
 **Interfaces:** 文档示例使用 `new GrowthSession(rainePrototypeConfig, { heroId: 'raine', random, levelCosts: growthPrototype.levelCosts, rewards: growthPrototype.rewards })`，读取 snapshot.token 和待选项后调用 select；示例说明普通选项 ID 与固定路线/分支 ID 的区别。
 
-- [ ] 用 Creator 3.8.6 导入新增资产脚本，核对新脚本 `.meta` 均存在、importer 为 typescript 且 UUID 全局唯一；既有资源 UUID 不变。若许可或 MCP 连接阻塞，继续完成纯核心验收，将资产导入明确记录为未通过项，不报告第一步全部验收完成。
-- [ ] 更新两处 README：说明新增成长核心与现有 Lv.2 战斗 Demo 的不同状态，给出使用示例、两次刷新、1% 兜底、固定节点、55 经验原型封顶和实测测试数；保留现有中文画面/触控/微信待测记录。
-- [ ] 在 `client/` 执行 `npm.cmd run verify` 并检查退出码、测试总数和零失败；在项目根执行 `git diff --check`，确认改动没有触及原战斗及本地未跟踪目录。只在修复带来新改动或新风险时重复相关验证。
+- [x] 用 Creator 3.8.6 导入新增资产脚本，核对新脚本 `.meta` 均存在、importer 为 typescript 且 UUID 全局唯一；既有资源 UUID 不变。若许可或 MCP 连接阻塞，继续完成纯核心验收，将资产导入明确记录为未通过项，不报告第一步全部验收完成。
+- [x] 更新两处 README：说明新增成长核心与现有 Lv.2 战斗 Demo 的不同状态，给出使用示例、两次刷新、1% 兜底、固定节点、55 经验原型封顶和实测测试数；保留现有中文画面/触控/微信待测记录。
+- [x] 在 `client/` 执行 `npm.cmd run verify` 并检查退出码、测试总数和零失败；在项目根执行 `git diff --check`，确认改动没有触及原战斗及本地未跟踪目录。只在修复带来新改动或新风险时重复相关验证。
 - [ ] 按执行方法安排独立全分支审查，重点检查事务回滚、极端权重、固定节点与令牌隔离；将可证实问题补充回归测试后修复。审查完如有代码修改，再跑完整 verify。
 - [ ] 精确暂存文档、生成的资产元数据和任务状态，中文提交：`文档：补充成长核心使用与验证记录`。报告最终提交、验证结果和仍待测项；集成动作由用户决定。
 

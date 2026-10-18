@@ -1,4 +1,4 @@
-# Pawvalor 客户端：阶段 2 战斗 Demo
+# Pawvalor 客户端：战斗 Demo 与成长核心
 
 使用 **Cocos Creator 3.8.6** 打开此 `client/` 目录。Git 根目录在上一级 `PawValor/`；批准设计位于 `docs/superpowers/specs/2026-10-16-phase-2-combat-demo-design.md`。
 
@@ -34,8 +34,53 @@ npm.cmd run verify
 
 `assets/scenes/Bootstrap.scene` 保持配置诊断用途，不启动战斗。预览显示并输出 **Pawvalor：配置校验通过（测试参数）**；该回归检查已通过。失败时控制台包含错误代码、路径和说明。
 
+## 第三阶段第一步：成长核心
+
+`GrowthSession` 提供独立于场景的纯 TypeScript 成长规则，**尚未接入战斗 Demo 与选卡界面，也不执行已选天赋或进化的战斗效果**。
+
+- 普通升级先过滤前置、满级与互斥，再按正权重不放回抽三张不同卡；本步仅开放通用天赋。
+- 每局两次普通刷新，允许再次出现相同卡组；Lv.3 主路线、Lv.7 当前路线分支不能刷新；Lv.11 自动记录终极并返回一次事件。
+- 合法候选不足三张时，补入独立基础攻击、生命、移速强化卡，各记录基础值 +1% 的次数，可跨升级重复获取，不占用或突破普通天赋等级。
+- 原型从 Lv.1→2 至 Lv.11→12 每级需要 5 点经验，55 点封顶。一次经验跨多级也逐项等待选择，经验达到等级与构筑提交等级分别记录。
+- 选择与刷新需要完整令牌，旧卡、旧局与跨实例命令被拒绝。异常抽取保留原状态和次数，但外部随机源已经调用的次数不会回滚。
+
+以下为开发期规则演示，自动选择首项；正式界面需由玩家提交选择。成长随机源独立创建，避免选卡影响战场刷怪随机序列。
+
+```typescript
+import { GrowthSession } from './assets/scripts/core/growth-session';
+import { SeededRandom } from './assets/scripts/core/demo-world';
+import { rainePrototypeConfig } from './assets/scripts/config/raine.prototype';
+import { growthPrototype } from './assets/scripts/config/growth.prototype';
+
+const growth = new GrowthSession(rainePrototypeConfig, {
+  heroId: 'raine',
+  random: new SeededRandom(42),
+  levelCosts: growthPrototype.levelCosts,
+  rewards: growthPrototype.rewards,
+});
+growth.grantXp(55);
+while (true) {
+  const snapshot = growth.snapshot();
+  const choice = snapshot.growth.pendingChoice;
+  if (!choice || !snapshot.token) break;
+  const optionId = choice.kind === 'ordinary' ? choice.options[0].id
+    : choice.kind === 'route' ? choice.routeIds[0] : choice.branchIds[0];
+  const result = growth.select(snapshot.token, optionId);
+  if (!result.ok) throw new Error(result.message);
+  for (const event of result.events) console.info('自动终极进化', event);
+}
+// 新局必须显式提供新建或复位的成长随机源。
+growth.reset(new SeededRandom(42));
+```
+
+普通卡 ID 带 `talent:` 或 `reward:` 前缀，固定选择直接使用路线/分支 ID。`snapshot.build.level` 是已提交等级，`snapshot.earnedLevel` 是经验可达等级。未来接入适配层时，存在待选项或待处理等级就应冻结战斗模拟，并在选择完成后重置固定步累积与移动输入。
+
+2026-10-18，`npm.cmd run verify`：**287 项测试通过**，包括类型和依赖边界检查；覆盖六条路线/分支进化路径、Lv.12 普通升级、兜底、异常事务回滚、快照/配置隔离及重开。既有 244 项测试保留。原型曲线及 1% 奖励未经平衡验证。
+
+**Creator 资产导入：** 2026-10-18，Creator 3.8.6 已完成资产数据库初始化并生成全部六个新脚本的 `.meta`；导入标记与全部 26 个资源 UUID 唯一性检查通过，既有元数据无改动。启动日志仍记录用户配置 `window.json` 含空字节的解析异常，但未阻止本次资产导入；未手动修改该全局配置。MCP 插件本轮离线许可检查通过。以上不替代中文画面、触控和微信设备验收。
+
 ## 原型边界
 
 当前只实现雷恩移动、自动直线剑气、敌人追击/接触伤害、击杀经验和 Lv.2 封顶。所有数值为测试参数；色块不代表正式伪 45° 美术。未实现暴击、天赋、路线/分支/终极、元素、组合、Boss、正式地图、服务端或上线资源。Lv.3 不会进入。
 
-阶段 3 前仍需确定元素占槽策略、普通候选不足三张的兜底、属性合并及经验曲线；示例 `elementPolicy` 不代表正式默认规则。
+第三阶段后续仍需确定元素占槽策略、属性合并和战斗经验曲线；示例 `elementPolicy` 不代表正式默认规则。第一步的兜底和经验曲线仅用于独立成长原型；本节战斗 Demo 仍为 Lv.2 封顶。
