@@ -5,6 +5,7 @@ import { compileCombatBuild } from './combat-build';
 import { selectSecondaryTarget, homingDirection, explosionTargets } from './combat-secondary';
 import { CombatStatusStore } from './combat-status';
 import { CombatTriggerGuard } from './combat-trigger';
+import { volleyDirections } from './combat-volley';
 import type { ProjectileConfig, WeaponConfig, GameConfig } from './config';
 import type { AttackSource, EntityHandle, RandomSource, RunState, Vec2 } from './contracts';
 import { validateGameConfig } from './validate-config';
@@ -21,10 +22,11 @@ interface EnemyState {
 }
 
 interface SwordState {
+  effectName?: string;
   source?: AttackSource;
   payload?: { compiled: CompiledCombatBuild; damage: number; baseDamage: number; range: number; size: Vec2; pierce: number; critChance: number; critMultiplier: number; projectile: ProjectileConfig };
   hitTargets?: Set<string>;
-  kind?: 'direct' | 'homing';
+  kind?: 'direct' | 'homing' | 'synergy';
   excludedTarget?: EntityHandle;
   target?: EntityHandle;
   handle: EntityHandle;
@@ -264,7 +266,33 @@ export class DemoWorld {
       const origin = clampToArena({ x: this.position.x - direction.y * extra.lateralOffset, y: this.position.y + direction.x * extra.lateralOffset });
       this.emitSword(extra.projectile, direction, origin, extra.damageMultiplier, rootId, events);
     }
+    this.emitSynergyVolleys(direction, rootId, target.handle, events);
     this.nextAttackSeconds = this.elapsedSeconds + (this.compiled?.stats.attackIntervalSeconds ?? this.weapon.attackIntervalSeconds);
+  }
+
+  private emitSynergyVolleys(direction: Vec2, rootId: number, target: EntityHandle, events: DemoEvent[]): void {
+    const c = this.compiled; if (!c) return;
+    const primaryDamage = this.projectile.inheritance.stats.includes('attackDamage') ? c.stats.attackDamage : c.baseDamage;
+    for (const volley of c.synergyVolleys) {
+      if (!this.triggerGuard.tryConsume(volley.effectId, volley.policy, this.source(rootId), target, this.generation, this.elapsedSeconds)) continue;
+      const projectile = volley.projectile;
+      const inherited = (stat: import('./config').StatId): boolean => volley.inheritance.stats.includes(stat) && projectile.inheritance.stats.includes(stat);
+      for (const childDirection of volleyDirections(direction, volley.projectileCount, volley.spreadDegrees)) {
+        const attackId = this.nextAttackId++, attacker = { id: 1, generation: this.generation };
+        const source: AttackSource = { rootAttackId: rootId, sourceKind: 'synergy', depth: 1 };
+        this.swords.push({ handle: { id: this.nextEntityId++, generation: this.generation }, attacker, attackId, source, kind: 'synergy', effectName: volley.name,
+          position: { ...this.position }, direction: childDirection, age: 0, distance: 0, hitTargets: new Set(),
+          payload: { compiled: c, projectile, damage: (inherited('attackDamage') ? primaryDamage : c.baseDamage) * volley.damageMultiplier,
+            baseDamage: c.baseDamage * volley.damageMultiplier, range: inherited('range') ? c.stats.range : this.weapon.range,
+            size: { x: projectile.size.x * (inherited('projectileSize') ? c.stats.projectileSize.x / this.projectile.size.x : 1),
+              y: projectile.size.y * (inherited('projectileSize') ? c.stats.projectileSize.y / this.projectile.size.y : 1) },
+            pierce: 0, critChance: 0, critMultiplier: 1 } });
+        events.push({ type: 'attack', elapsedSeconds: this.elapsedSeconds, attackId, attacker: { ...attacker }, source: { ...source },
+          projectileId: projectile.id, origin: { ...this.position }, direction: { ...childDirection } });
+      }
+      events.push({ type: 'effectTriggered', elapsedSeconds: this.elapsedSeconds, effectId: volley.effectId, effectName: volley.name,
+        source: { rootAttackId: rootId, sourceKind: 'synergy', depth: 1 }, position: { ...this.position } });
+    }
   }
 
   private emitSword(projectile: ProjectileConfig, direction: Vec2, origin: Vec2, multiplier: number, rootId: number, events: DemoEvent[]): void {
@@ -315,10 +343,10 @@ export class DemoWorld {
       let consumed = false;
       for (const {enemy: hit, fraction} of collisions) {
         if (hit.health <= 0) continue;
-        const critical = !!sword.payload && sword.kind !== 'homing' && this.criticalRandom.next() < sword.payload.critChance;
+        const critical = !!sword.payload && sword.kind === 'direct' && this.criticalRandom.next() < sword.payload.critChance;
         const damage = (sword.payload?.damage ?? this.damage) * (critical ? sword.payload!.critMultiplier : 1);
         this.dealDamage({ attackId: sword.attackId, attacker: sword.attacker, target: hit.handle,
-          source: sword.source ?? this.source(sword.attackId), damage, critical }, events);
+          source: sword.source ?? this.source(sword.attackId), damage, critical, ...(sword.effectName ? { effectName: sword.effectName } : {}) }, events);
         if (sword.payload && sword.kind === 'direct') this.onDirectHit({ attackId: sword.attackId, attacker: sword.attacker,
           source: sword.source!, target: hit.handle, position: { x: sword.position.x + (end.x - sword.position.x) * fraction, y: sword.position.y + (end.y - sword.position.y) * fraction },
           damage: sword.payload.damage, baseDamage: sword.payload.baseDamage, elements: sword.payload.projectile.inheritance.enchantments ? sword.payload.compiled.elements : [],
@@ -392,7 +420,8 @@ export class DemoWorld {
     const enemy = this.enemies.find(e => e.health > 0 && e.handle.id === request.target.id && e.handle.generation === request.target.generation);
     if (!enemy || enemy.handle.generation !== this.generation || request.attacker.generation !== this.generation) return;
     const target = { ...enemy.handle }; const source = { ...request.source }; const attacker = { ...request.attacker };
-    events.push({ type: 'hit', elapsedSeconds: this.elapsedSeconds, attackId: request.attackId, attacker, target, source, damage: request.damage, critical: request.critical });
+    events.push({ type: 'hit', elapsedSeconds: this.elapsedSeconds, attackId: request.attackId, attacker, target, source, damage: request.damage, critical: request.critical,
+      ...(request.effectName ? { effectName: request.effectName } : {}) });
     enemy.health = Math.max(0, enemy.health - request.damage);
     if (enemy.health > 0) return;
     this.enemies = this.enemies.filter(e => e !== enemy); this.kills++;

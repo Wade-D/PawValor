@@ -31,6 +31,7 @@ export interface ResolvedSynergyVolley {
   damageMultiplier: number; inheritance: ProjectileInheritance; projectile: ProjectileConfig; policy: TriggerPolicy;
 }
 export interface DamageRequest {
+  effectName?: string;
   attackId: number; attacker: EntityHandle; target: EntityHandle; source: AttackSource; damage: number; critical: boolean;
 }
 export interface CombatStatusSnapshot { kind: 'burn' | 'slow'; expiresAt: number; nextTickAt?: number; slowRatio?: number }

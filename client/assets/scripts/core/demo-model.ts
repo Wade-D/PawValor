@@ -45,7 +45,7 @@ export interface DemoEnemySnapshot extends DemoEntitySnapshot {
 }
 export interface DemoProjectileSnapshot extends DemoEntitySnapshot {
   readonly direction: Vec2;
-  readonly kind?: 'direct' | 'homing';
+  readonly kind?: 'direct' | 'homing' | 'synergy';
   readonly size?: Vec2;
 }
 export interface DemoOrbSnapshot extends DemoEntitySnapshot {
