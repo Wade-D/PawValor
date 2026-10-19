@@ -3,6 +3,15 @@ import {GrowthCombatRun} from '../.test-build/core/growth-combat-run.js';import 
 const api=await import('../.test-build/core/growth-presentation.js').catch(()=>({}));const data=await import('../.test-build/config/growth-copy.prototype.js').catch(()=>({}));
 function view(run,c=fixtureConfig()){assert.equal(typeof api.presentGrowth,'function');return api.presentGrowth(c,data.growthCopyPrototype,run.snapshot());}
 const create=()=>{const r=new GrowthCombatRun(fixtureConfig(),runOptions({createGrowthRandom:()=>({next:()=>0})}));r.start();return r;};
+
+test('元素候选预览溢出不阻断其他合法卡片及重开路径',()=>{
+ const c=fixtureConfig();c.weapons[0].baseDamage=1e308;c.heroes[0].baseStats.attackPower=0;c.heroes[0].baseStats.critChance=0;
+ c.effects.find(e=>e.id==='fire-hit').damageMultiplier=1;c.talents.forEach(t=>t.weight=t.id==='fire-enchantment'?1:0);
+ const r=new GrowthCombatRun(c,runOptions({createGrowthRandom:()=>({next:()=>0})}));r.start();r.grantXp(5);
+ assert.equal(r.select(r.snapshot().growth.token,'talent:fire-enchantment').ok,true);r.grantXp(5);assert.equal(r.select(r.snapshot().growth.token,'wanjian').ok,true);r.grantXp(5);
+ const before=r.snapshot();const v=view(r,c);assert.equal(v.cards.length,3);assert.match(v.cards.find(x=>x.optionId==='talent:fire-enchantment').description,/超出.*范围/);
+ assert.deepEqual(r.snapshot(),before);assert.equal(r.select(v.token,'reward:base-health').ok,true);assert.equal(r.snapshot().growth.build.level,4);assert.equal(r.snapshot().error,null);
+});
 test('普通卡显示中文类别、等级、真实数值及刷新状态，令牌与输入隔离',()=>{
  const r=create();r.grantXp(5);let v=view(r);assert.equal(v.cards.length,3);assert.equal(new Set(v.cards.map(c=>c.optionId)).size,3);assert.match(v.cards[0].name,/攻击强化/);assert.match(v.cards[0].description,/10.0%/);assert.match(v.cards[0].rankText,/0.*1/);assert.equal(v.refresh.enabled,true);
  const snapshot=r.snapshot();v.token.revision=999;assert.notEqual(snapshot.growth.token.revision,999);

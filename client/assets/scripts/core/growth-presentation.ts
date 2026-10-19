@@ -39,7 +39,11 @@ function talentDescription(config: GameConfig, copy: GrowthCopyConfig, snapshot:
       if (!build.enchantmentIds.includes(talent.id)) build.enchantmentIds.push(talent.id);
       for (const id of snapshot.growth.activatingSynergyIds) if (!build.activeSynergyIds.includes(id)) build.activeSynergyIds.push(id);
       build.pendingSynergies = build.pendingSynergies.filter(p => !build.activeSynergyIds.includes(p.synergyId));
-      const resolved = required(compileCombatBuild(config, build).elements.find(element => element.element === e.element));
+      let preview;
+      // 单张候选无法执行时仍保留整组选项，真实提交继续由事务校验。
+      try { preview = compileCombatBuild(config, build); }
+      catch { return '该升级当前超出可执行范围；请选择其他卡片或刷新。'; }
+      const resolved = required(preview.elements.find(element => element.element === e.element));
       const damage = `${number(resolved.damageMultiplier * 100)}%主伤害`;
       return resolved.kind === 'burn' ? `${resolved.name}：每秒${damage}，持续${number(resolved.durationSeconds)}秒`
         : `${resolved.name}：追加${damage}${resolved.kind === 'slow-hit' ? `，减速${number(resolved.slowRatio * 100)}%持续${number(resolved.durationSeconds)}秒` : ''}`;
