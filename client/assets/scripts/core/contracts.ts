@@ -65,6 +65,7 @@ export interface AttackEvent {
 }
 
 export interface HitEvent {
+  effectName?: string;
   type: 'hit';
   elapsedSeconds: number;
   attackId: number;

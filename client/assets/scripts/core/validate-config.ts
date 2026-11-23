@@ -158,6 +158,7 @@ export function validateGameConfig(config: GameConfig): ConfigIssue[] {
     number(talent.weight, `${p}.weight`);
     prerequisites(talent.prerequisites, `${p}.prerequisites`);
     references(talent.effectIds, `${p}.effectIds`, effects);
+    talent.requiredCapabilities?.forEach((capability, j) => domain(capability, `${p}.requiredCapabilities[${j}]`, ['area-attack']));
   });
 
   config.routes.forEach((route, i) => {
@@ -196,12 +197,49 @@ export function validateGameConfig(config: GameConfig): ConfigIssue[] {
         reference(effect.triggerPolicyId, `${p}.triggerPolicyId`, triggers);
         number(effect.projectileCount, `${p}.projectileCount`, 1, true);
         number(effect.damageMultiplier, `${p}.damageMultiplier`);
+        if (effect.execution) {
+          domain(effect.execution.kind, `${p}.execution.kind`, ['extra-projectile', 'synergy-volley']);
+          domain(effect.execution.trigger, `${p}.execution.trigger`, ['on-fire']);
+          if (effect.execution.kind === 'extra-projectile') {
+            domain(effect.pattern, `${p}.pattern`, ['single']); fixedNumber(effect.projectileCount, `${p}.projectileCount`, 1);
+            number(effect.execution.lateralOffset, `${p}.execution.lateralOffset`);
+          } else {
+            domain(effect.pattern, `${p}.pattern`, ['multishot']); number(effect.projectileCount, `${p}.projectileCount`, 1, true, false, 64);
+            number(effect.execution.spreadDegrees, `${p}.execution.spreadDegrees`, 0, false, false, 360);
+            effect.execution.inheritance.stats.forEach((stat, j) => domain(stat, `${p}.execution.inheritance.stats[${j}]`, ['attackDamage','projectileSize','range']));
+            domain(effect.execution.inheritance.enchantments, `${p}.execution.inheritance.enchantments`, [false]);
+            domain(effect.execution.inheritance.secondaryMechanisms, `${p}.execution.inheritance.secondaryMechanisms`, [false]);
+          }
+        }
         break;
       case 'element':
         domain(effect.element, `${p}.element`, ['fire', 'ice', 'lightning']);
         reference(effect.triggerPolicyId, `${p}.triggerPolicyId`, triggers);
         number(effect.damageMultiplier, `${p}.damageMultiplier`);
         number(effect.durationSeconds, `${p}.durationSeconds`);
+        if (effect.execution) {
+          domain(effect.execution.kind, `${p}.execution.kind`, ['burn', 'slow-hit', 'bonus-hit']);
+          if (effect.execution.kind === 'burn') {
+            number(effect.execution.tickIntervalSeconds, `${p}.execution.tickIntervalSeconds`, 0, false, true);
+            number(effect.durationSeconds, `${p}.durationSeconds`, 0, false, true);
+            domain(effect.element, `${p}.element`, ['fire']);
+          } else if (effect.execution.kind === 'slow-hit') {
+            number(effect.execution.slowRatio, `${p}.execution.slowRatio`, 0, false, false, 1);
+            number(effect.durationSeconds, `${p}.durationSeconds`, 0, false, true);
+            domain(effect.element, `${p}.element`, ['ice']);
+          } else domain(effect.element, `${p}.element`, ['lightning']);
+        }
+        break;
+      case 'secondary-mechanism':
+        domain(effect.trigger, `${p}.trigger`, ['on-direct-hit']);
+        number(effect.damageMultiplier, `${p}.damageMultiplier`);
+        reference(effect.triggerPolicyId, `${p}.triggerPolicyId`, triggers);
+        effect.inheritance.stats.forEach((stat, j) => domain(stat, `${p}.inheritance.stats[${j}]`, stats));
+        domain(effect.inheritance.enchantments, `${p}.inheritance.enchantments`, [false]);
+        domain(effect.inheritance.secondaryMechanisms, `${p}.inheritance.secondaryMechanisms`, [false]);
+        domain(effect.behavior.kind, `${p}.behavior.kind`, ['homing', 'explosion']);
+        if (effect.behavior.kind === 'homing') reference(effect.behavior.projectileId, `${p}.behavior.projectileId`, projectiles);
+        else number(effect.behavior.radius, `${p}.behavior.radius`, 0, false, true);
         break;
       case 'ultimate-behavior':
         identifier(effect.behaviorId, `${p}.behaviorId`);
@@ -222,7 +260,11 @@ export function validateGameConfig(config: GameConfig): ConfigIssue[] {
   });
 
   const policy = config.elementPolicy;
-  domain(policy.usage, 'elementPolicy.usage', ['test-only']);
+  domain(policy.usage, 'elementPolicy.usage', ['test-only', 'confirmed']);
+  if (policy.usage === 'confirmed') {
+    domain(policy.innateElementCounts, 'elementPolicy.innateElementCounts', [false]);
+    domain(policy.enchantmentsUseSecondarySlots, 'elementPolicy.enchantmentsUseSecondarySlots', [false]);
+  }
   fixedNumber(policy.maxEnchantments, 'elementPolicy.maxEnchantments', 2);
   fixedNumber(policy.maxSecondaryMechanisms, 'elementPolicy.maxSecondaryMechanisms', 2);
   domain(policy.innateElementCounts, 'elementPolicy.innateElementCounts', [true, false]);

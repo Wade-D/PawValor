@@ -1,0 +1,23 @@
+剑士局内像素风格概念，2026-11-14。
+
+生成方式：内置 image_gen；以上一版轻绘本局内图作风格转换参考。
+参考：swordsman_storybook_combat_2026-11-14_v1.png。
+输出：swordsman_pixel_combat_2026-11-14_v1.png。
+
+保留场景布局、角色和敌人分布、HUD与战斗内容，便于比较风格。此图是像素风格概念，不是已验证统一像素网格的精灵或地图资产，也未接入运行时。
+
+完整生成提示词：
+
+Use case: style-transfer.
+EDIT the supplied portrait in-game battle concept into AUTHORED CRISP PIXEL ART. Keep the EXACT SAME GAME SCENE AND COMPOSITION to allow a fair art-style comparison. Output one single portrait 9:16 full-screen image, no comparison panels, no phone frame.
+
+INVARIANTS: same golden kitten swordsman at lower-center in same sword slash pose, same relative size, same ivory cape, silver armor, gold crossguard straight sword, brown belts, dusty pink bow on character's own left ear. Same cute round young kitten face and large dark eyes. Same six enemies at matching positions: three twig soldiers (upper-left, mid-left and beside sword impact lower-right), one boar upper-center, one mushroom bomb thrower upper-right and one masked wooden archer mid-right. Same room perimeter, gate at north/top, two side columns, ivy and flowering plants near edges, central worn stone paving with grass gaps, lower movement apron. Same five turquoise XP crystal locations. Same small red circular hatched bomb landing warning and airborne bomb at mid-right, same small cream-gold crescent slash and damage number "18". Same top compact health / XP HUD, kitten portrait, "86/100", "Lv.5", pause icon, centered "第 3 波"; same translucent movement joystick bottom-left. Same camera angle, scale, palette, terrain outline, empty movement space and health values. Do not add new powers, monsters, bosses or scenery. No active skill buttons.
+
+PIXEL ART DIRECTION: professionally hand-authored 16-bit-inspired chibi fantasy sprite art with clean controlled pixel clusters. This is a complete pixel-art redraw of all world assets, NOT merely a low-resolution mosaic of the original illustration. Render the WORLD as if designed at roughly 360x640 source pixel resolution and enlarged at an integer factor with NEAREST NEIGHBOR. The visible pixel grid should be convincing and consistent: square pixels, stepped diagonal contours, deliberate 1-source-pixel dark outlines, clear 2–4-pixel color clusters. No smooth ink contours anywhere in the world. No blurry upscaling, no soft vector edges, no watercolor grain, no painterly brush texture, no photographic lighting, no anti-aliased 3D objects. Character silhouette and sword effect are built from crisp connected pixels.
+Simplify source detail intelligently. Use 3–4 shades per material. Golden kitten fur has broad gold and cream pixel masses, two or three darker crown clusters, readable triangular ears, simple glossy black eyes, and a distinctly pink 4–8-pixel bow shape; no individual fur hairs. Silver armor is cool gray with small pale pixel highlights; cloak cream with a small number of warm-gray fold clusters. No dense chainmail dots or individually rendered tiny rivets. Preserve lovable reference identity and armor silhouette at game scale.
+Enemy silhouettes remain distinct and slightly angular: dark wooden forked limbs, boar spine silhouette, red mushroom cap with a few cream spots, narrow wooden archer with visible bow arc. They must be pixel sprites sharing same scale and palette grammar as the hero.
+Environment uses modular pixel tiles: quiet pale limestone blocks, muted sage grass, sparse tile variation. Use large calm fields, reduced contrast and minimal dithering on walkable floor; don't scatter noisy grass texture over every tile. Ivy leaves form a few chunky clusters at edges. Keep dark pixel outlines lighter and thinner on ground than on actors. Portcullis and columns keep their relative dimensions, built from consistent pixel steps.
+Effects: crisp pale gold/cream pixel crescent with sparse sparkle pixels, no bloom. Enemy circle has a complete red stepped-pixel outline and spaced diagonal hatch lines; translucent fill keeps ground visible. XP crystals use only a few turquoise shades and one bright highlight.
+HUD: preserve exact placement and readability. Pixel-art kitten portrait and pixel-styled frames with stepped rounded corners and ivory / dark brown / moss green palette. Chinese text may use clean highly legible modern sans serif at display resolution rather than crude unreadable tiny pixel letters. "86/100", "Lv.5", "第 3 波", "18" exact. No subtitles, labels, watermark or art-board title.
+Goal: this SAME readable mobile battle scene expressed in a clear charming consistent pixel-art production direction, distinctly different from the previous smooth outlined storybook version, while keeping every important layout and identity choice fixed.
+

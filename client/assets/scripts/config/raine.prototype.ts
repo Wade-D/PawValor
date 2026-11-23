@@ -1,11 +1,6 @@
 import type { GameConfig } from '../core/config';
 
-/**
- * Structural example only: calibration covers EVERY nested numeric parameter.
- * No balance validation or combat executor exists for these prototype effects.
- * Talent stacking and the experimental element choices are explained in
- * docs/design/phase-1-foundation.md at the project root.
- */
+/** 已确认槽位规则；所有数值仍为未经平衡的原型测试参数。 */
 export const rainePrototypeConfig: GameConfig = {
   calibration: 'prototype',
   heroes: [{
@@ -50,6 +45,8 @@ export const rainePrototypeConfig: GameConfig = {
         enchantments: true, secondaryMechanisms: false,
       },
     },
+      { id: 'secondary-seeking-blade', movement: 'homing', speed: 10, size: { x: 0.4, y: 0.7 }, lifetimeSeconds: 2, pierceCount: 0, inheritance: { stats: ['attackDamage', 'projectileSize', 'range'], enchantments: false, secondaryMechanisms: false } },
+    { id: 'synergy-sword-rain', movement: 'straight', speed: 12, size: { x: 0.3, y: 0.8 }, lifetimeSeconds: 1, pierceCount: 0, inheritance: { stats: ['attackDamage', 'projectileSize', 'range'], enchantments: false, secondaryMechanisms: false } },
   ],
   talents: [
     {
@@ -81,7 +78,7 @@ export const rainePrototypeConfig: GameConfig = {
       prerequisites: [], exclusiveTags: [], effectIds: ['range-up-stat'], weight: 1,
     },
     {
-      id: 'area-size-up', name: '范围增幅', category: 'general', maxLevel: 3,
+      requiredCapabilities: ['area-attack'], id: 'area-size-up', name: '范围增幅', category: 'general', maxLevel: 3,
       prerequisites: [], exclusiveTags: [], effectIds: ['area-size-up-stat'], weight: 1,
     },
     {
@@ -112,6 +109,8 @@ export const rainePrototypeConfig: GameConfig = {
       id: 'lightning-enchantment', name: '雷电附魔', category: 'enchantment', maxLevel: 3,
       prerequisites: [], exclusiveTags: [], effectIds: ['lightning-hit'], weight: 1,
     },
+      { id: 'secondary-seeking', name: '追踪剑气', category: 'secondary-mechanism', maxLevel: 3, prerequisites: [], exclusiveTags: [], effectIds: ['secondary-seeking-effect'], weight: 1 },
+    { id: 'secondary-burst', name: '命中爆裂', category: 'secondary-mechanism', maxLevel: 3, prerequisites: [], exclusiveTags: [], effectIds: ['secondary-burst-effect'], weight: 1 },
   ],
   routes: [
     {
@@ -140,7 +139,9 @@ export const rainePrototypeConfig: GameConfig = {
     },
   ],
   effects: [
-    // Per-rank factors use baseline * (1 + rank * (factor - 1)), never factor ** rank.
+    { id: 'secondary-seeking-effect', kind: 'secondary-mechanism', trigger: 'on-direct-hit', damageMultiplier: 0.35, triggerPolicyId: 'secondary-direct-only', inheritance: { stats: ['attackDamage', 'projectileSize', 'range'], enchantments: false, secondaryMechanisms: false }, behavior: { kind: 'homing', projectileId: 'secondary-seeking-blade' } },
+    { id: 'secondary-burst-effect', kind: 'secondary-mechanism', trigger: 'on-direct-hit', damageMultiplier: 0.30, triggerPolicyId: 'secondary-direct-only', inheritance: { stats: ['attackDamage', 'areaSize'], enchantments: false, secondaryMechanisms: false }, behavior: { kind: 'explosion', radius: 1 } },
+    // 每级百分比按基础值加算，不使用指数复利。
     { id: 'attack-up-stat', kind: 'stat-modifier', stat: 'attackDamage', operation: 'multiply', value: 1.10 },
     { id: 'attack-speed-up-stat', kind: 'stat-modifier', stat: 'attackSpeed', operation: 'multiply', value: 1.08 },
     { id: 'crit-chance-up-stat', kind: 'stat-modifier', stat: 'critChance', operation: 'add', value: 0.05 },
@@ -152,8 +153,8 @@ export const rainePrototypeConfig: GameConfig = {
     { id: 'max-health-up-stat', kind: 'stat-modifier', stat: 'maxHealth', operation: 'multiply', value: 1.12 },
     { id: 'move-speed-up-stat', kind: 'stat-modifier', stat: 'moveSpeed', operation: 'multiply', value: 1.06 },
     { id: 'armor-up-stat', kind: 'stat-modifier', stat: 'damageReduction', operation: 'add', value: 0.06 },
-    // Separate extra hit: do not apply its 0.6 factor to the entire weapon output.
-    { id: 'extra-projectile-attack', kind: 'attack-pattern', pattern: 'single', projectileId: 'sword-qi', projectileCount: 1, damageMultiplier: 0.6, triggerPolicyId: 'direct-only' },
+    // 额外弹体单独削弱，不能降低主弹体伤害。
+    { id: 'extra-projectile-attack', kind: 'attack-pattern', pattern: 'single', projectileId: 'sword-qi', projectileCount: 1, damageMultiplier: 0.6, triggerPolicyId: 'direct-only', execution: { kind: 'extra-projectile', trigger: 'on-fire', lateralOffset: 0.2 } },
     { id: 'multishot-entry', kind: 'attack-pattern', pattern: 'multishot', projectileId: 'sword-qi', projectileCount: 3, damageMultiplier: 0.8, triggerPolicyId: 'direct-only' },
     { id: 'sanhua-attack', kind: 'attack-pattern', pattern: 'multishot', projectileId: 'sword-qi', projectileCount: 5, damageMultiplier: 0.65, triggerPolicyId: 'direct-only' },
     { id: 'jufeng-attack', kind: 'attack-pattern', pattern: 'single', projectileId: 'sword-qi', projectileCount: 1, damageMultiplier: 2.4, triggerPolicyId: 'direct-only' },
@@ -165,24 +166,24 @@ export const rainePrototypeConfig: GameConfig = {
     { id: 'wanjian-ultimate', kind: 'attack-pattern', pattern: 'multishot', projectileId: 'sword-qi', projectileCount: 10, damageMultiplier: 1.2, triggerPolicyId: 'direct-only' },
     { id: 'thunder-ultimate', kind: 'element', element: 'lightning', damageMultiplier: 3, durationSeconds: 0, triggerPolicyId: 'element-direct-only' },
     { id: 'returning-ultimate', kind: 'attack-pattern', pattern: 'orbiting', projectileId: 'guarding-blade', projectileCount: 6, damageMultiplier: 1.1, triggerPolicyId: 'direct-only' },
-    // Symbolic planned differences only; these IDs have no executable implementation.
+    // 分支终极行为仍为第四阶段规划引用。
     { id: 'ultimate-sanhua', kind: 'ultimate-behavior', behaviorId: 'planned-wanjian-fan-array', projectileId: 'sword-qi', damageMultiplier: 1.2, triggerPolicyId: 'direct-only' },
     { id: 'ultimate-jufeng', kind: 'ultimate-behavior', behaviorId: 'planned-wanjian-focused-array', projectileId: 'sword-qi', damageMultiplier: 2.4, triggerPolicyId: 'direct-only' },
     { id: 'ultimate-chain-lightning', kind: 'ultimate-behavior', behaviorId: 'planned-thunder-chain-judgment', projectileId: 'sword-qi', damageMultiplier: 1.5, triggerPolicyId: 'bounded-derived' },
     { id: 'ultimate-piercing-thunder', kind: 'ultimate-behavior', behaviorId: 'planned-thunder-piercing-judgment', projectileId: 'sword-qi', damageMultiplier: 3, triggerPolicyId: 'direct-only' },
     { id: 'ultimate-guarding-swords', kind: 'ultimate-behavior', behaviorId: 'planned-endless-guarding-wheel', projectileId: 'guarding-blade', damageMultiplier: 1.1, triggerPolicyId: 'direct-only' },
     { id: 'ultimate-seeking-swords', kind: 'ultimate-behavior', behaviorId: 'planned-endless-seeking-wheel', projectileId: 'seeking-blade', damageMultiplier: 1.4, triggerPolicyId: 'direct-only' },
-    { id: 'innate-lightning', kind: 'element', element: 'lightning', damageMultiplier: 0.4, durationSeconds: 0, triggerPolicyId: 'element-direct-only' },
-    { id: 'fire-hit', kind: 'element', element: 'fire', damageMultiplier: 0.2, durationSeconds: 3, triggerPolicyId: 'element-direct-only' },
-    { id: 'ice-hit', kind: 'element', element: 'ice', damageMultiplier: 0.15, durationSeconds: 2, triggerPolicyId: 'element-direct-only' },
-    { id: 'lightning-hit', kind: 'element', element: 'lightning', damageMultiplier: 0.3, durationSeconds: 0, triggerPolicyId: 'element-direct-only' },
-    { id: 'fire-resonance', kind: 'element', element: 'fire', damageMultiplier: 0.3, durationSeconds: 3, triggerPolicyId: 'element-direct-only' },
-    { id: 'ice-resonance', kind: 'element', element: 'ice', damageMultiplier: 0.25, durationSeconds: 2, triggerPolicyId: 'element-direct-only' },
-    { id: 'lightning-resonance', kind: 'element', element: 'lightning', damageMultiplier: 0.5, durationSeconds: 0, triggerPolicyId: 'element-direct-only' },
-    { id: 'test-thunder-sword-rain-attack', kind: 'attack-pattern', pattern: 'multishot', projectileId: 'sword-qi', projectileCount: 4, damageMultiplier: 0.5, triggerPolicyId: 'direct-only' },
+    { id: 'innate-lightning', kind: 'element', element: 'lightning', damageMultiplier: 0.4, durationSeconds: 0, triggerPolicyId: 'element-direct-only', execution: { kind: 'bonus-hit' } },
+    { id: 'fire-hit', kind: 'element', element: 'fire', damageMultiplier: 0.2, durationSeconds: 3, triggerPolicyId: 'element-direct-only', execution: { kind: 'burn', tickIntervalSeconds: 1 } },
+    { id: 'ice-hit', kind: 'element', element: 'ice', damageMultiplier: 0.15, durationSeconds: 2, triggerPolicyId: 'element-direct-only', execution: { kind: 'slow-hit', slowRatio: 0.3 } },
+    { id: 'lightning-hit', kind: 'element', element: 'lightning', damageMultiplier: 0.3, durationSeconds: 0, triggerPolicyId: 'element-direct-only', execution: { kind: 'bonus-hit' } },
+    { id: 'fire-resonance', kind: 'element', element: 'fire', damageMultiplier: 0.3, durationSeconds: 3, triggerPolicyId: 'element-direct-only', execution: { kind: 'burn', tickIntervalSeconds: 1 } },
+    { id: 'ice-resonance', kind: 'element', element: 'ice', damageMultiplier: 0.25, durationSeconds: 2, triggerPolicyId: 'element-direct-only', execution: { kind: 'slow-hit', slowRatio: 0.3 } },
+    { id: 'lightning-resonance', kind: 'element', element: 'lightning', damageMultiplier: 0.5, durationSeconds: 0, triggerPolicyId: 'element-direct-only', execution: { kind: 'bonus-hit' } },
+    { id: 'test-thunder-sword-rain-attack', kind: 'attack-pattern', pattern: 'multishot', projectileId: 'synergy-sword-rain', projectileCount: 4, damageMultiplier: 0.5, triggerPolicyId: 'synergy-on-fire', execution: { kind: 'synergy-volley', trigger: 'on-fire', spreadDegrees: 36, inheritance: { stats: ['attackDamage', 'projectileSize', 'range'], enchantments: false, secondaryMechanisms: false } } },
   ],
   synergies: [{
-    id: 'test-thunder-sword-rain', name: '雷霆剑雨（测试前置示例）', usage: 'test-only',
+    id: 'test-thunder-sword-rain', name: '雷霆剑雨', usage: 'test-only',
     prerequisites: [
       { kind: 'hero', heroId: 'raine' },
       { kind: 'route', routeId: 'wanjian' },
@@ -191,14 +192,15 @@ export const rainePrototypeConfig: GameConfig = {
     ],
     effectIds: ['test-thunder-sword-rain-attack'], activation: 'next-level',
   }],
-  // Experimental test selection: innate lightning plus fire/ice can yield three attributes.
-  // These booleans MUST be decided again before real growth uses the policy in phase 3.
+  // 已确认：固有属性不占附魔位，附魔与两个副机制槽独立。
   elementPolicy: {
-    usage: 'test-only', maxEnchantments: 2, maxSecondaryMechanisms: 2,
+    usage: 'confirmed', maxEnchantments: 2, maxSecondaryMechanisms: 2,
     innateElementCounts: false, enchantmentsUseSecondarySlots: false,
     resonanceEffectIds: ['fire-resonance', 'ice-resonance', 'lightning-resonance'],
   },
   triggerPolicies: [
+    { id: 'synergy-on-fire', allowedSources: ['direct'], maxDepth: 0, maxTriggersPerRoot: 1, cooldownSeconds: 0, targetHitIntervalSeconds: 0 },
+    { id: 'secondary-direct-only', allowedSources: ['direct'], maxDepth: 0, maxTriggersPerRoot: 1, cooldownSeconds: 0.8, targetHitIntervalSeconds: 0.8 },
     {
       id: 'direct-only', allowedSources: ['direct'], maxDepth: 0, maxTriggersPerRoot: 1,
       cooldownSeconds: 0, targetHitIntervalSeconds: 0.1,
