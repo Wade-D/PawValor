@@ -1,6 +1,8 @@
 # Pawvalor 阶段 1：核心依赖与规则交接
 
-本文件依据[原始设计基线](pawvalor-v0.1-original.md)和[已批准的阶段 1 设计](../superpowers/specs/2026-10-15-phase-1-design.md)。阶段 1 提供纯 TypeScript 契约、配置结构、引用校验和雷恩测试数据；下面的升级事务、伤害处理和清理顺序是后续实现约束，不代表已有状态机或战斗系统。
+> **历史文档。** 本文记录第一阶段工程契约（含旧原型角色“雷恩”的测试配置）。其中依赖边界等工程约束仍由[局内开发阶段与验收计划](局内开发阶段与验收计划.md)沿用；玩法规则与数值以[设计文档索引](README.md)所列基线为准。
+
+本文件依据[原始设计基线](pawvalor-v0.1-original.md)和已批准的阶段 1 设计（`docs/superpowers/specs/2026-10-15-phase-1-design.md`，原文件已删除）。阶段 1 提供纯 TypeScript 契约、配置结构、引用校验和雷恩测试数据；下面的升级事务、伤害处理和清理顺序是后续实现约束，不代表已有状态机或战斗系统。
 
 雷恩示例位于 `client/assets/scripts/config/raine.prototype.ts`，导出 `rainePrototypeConfig: GameConfig`。根字段 `calibration: 'prototype'` 覆盖整张表的所有嵌套数值，包括基础属性、武器、弹道、权重、倍率、冷却和触发次数。测试参数尚未经过平衡、性能或真机验证。三条路线及六个分支只有数据与符号行为引用，**尚无实际战斗行为**。
 

@@ -1,0 +1,62 @@
+[
+  {
+    "game": "Brotato",
+    "source": "https://store.steampowered.com/app/1942280/",
+    "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1942280/ss_79be0eea0299da76bc50cef160fb669509f74e0b.1920x1080.jpg?t=1793641955",
+    "file": "brotato.jpg"
+  },
+  {
+    "game": "Death Must Die",
+    "source": "https://store.steampowered.com/app/2334730/",
+    "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2334730/ss_4c5dc0f9dde1a7dd5a73db9df0a7a6cc4f7b3ca9.1920x1080.jpg?t=1744305567",
+    "file": "death_must_die.jpg"
+  },
+  {
+    "game": "20 Minutes Till Dawn",
+    "source": "https://store.steampowered.com/app/1966900/",
+    "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1966900/ss_0ee0797519f432d01614ff20027ccbf4568255b7.1920x1080.jpg?t=1785102761",
+    "file": "20_minutes_till_dawn.jpg"
+  },
+  {
+    "game": "Cult of the Lamb",
+    "source": "https://store.steampowered.com/app/1313140/",
+    "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1313140/ss_3bda2c2e740660fcde8c42eafab4cb7574ab54e6.1920x1080.jpg?t=1786554901",
+    "file": "cult_of_the_lamb.jpg"
+  },
+  {
+    "game": "Cat Quest II",
+    "source": "https://store.steampowered.com/app/914710/",
+    "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/914710/ss_bedb133698979affe714c2f407449e92e9d4534a.1920x1080.jpg?t=1760435512",
+    "file": "cat_quest_2.jpg"
+  },
+  {
+    "game": "Soulstone Survivors",
+    "source": "https://store.steampowered.com/app/2066020/",
+    "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/2066020/cb5ddb50488c2444357758cada3e463f32dade2a/ss_cb5ddb50488c2444357758cada3e463f32dade2a.1920x1080.jpg?t=1793981163",
+    "file": "soulstone_survivors.jpg"
+  },
+  {
+    "game": "Vampire Survivors",
+    "source": "https://store.steampowered.com/app/1794680/",
+    "image": "https://shared.akamai.steamstatic.com/store_item_assets/steam/apps/1794680/ss_6c55afe36be2a7784bf18cb9b3218321ae2d10e5.1920x1080.jpg?t=1794307910",
+    "file": "vampire_survivors.jpg"
+  },
+  {
+    "game": "archero_2",
+    "source": "https://play.google.com/store/apps/details?id=com.xq.archeroii",
+    "image": "https://play-lh.googleusercontent.com/3fjdJOaXGorGW2Z3o43SEJy2KruXmu9cHUsaJIulOUMKd3KUS0miyIZe-FH8xngPGH8qHtaYiYch4UgUkh_Spnw=w1200",
+    "file": "archero_2.png"
+  },
+  {
+    "game": "soul_knight",
+    "source": "https://play.google.com/store/apps/details?id=com.ChillyRoom.DungeonShooter",
+    "image": "https://play-lh.googleusercontent.com/ezREc33gNOdsagG2oFketXwSbo4JC82oqZ-FHPBqxKcUtP13ZpRq_HuhW5CH5h9FtrDI0MRHPBSLCD6Y-W_iAg=w1200",
+    "file": "soul_knight.png"
+  },
+  {
+    "game": "survivor_io",
+    "source": "https://play.google.com/store/apps/details?id=com.dxx.firenow",
+    "image": "https://play-lh.googleusercontent.com/MMMP-SPyP1C3Wgn2qNlBlh-kytzRbUm5XXSiPUpthG81sPLiv-zMS8ADgNQBCd6vqE9wIl67e_zDf8NkpF7H=w1200",
+    "file": "survivor_io.png"
+  }
+]
