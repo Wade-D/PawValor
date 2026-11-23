@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans for native execution, or superpowers:subagent-driven-development if the user chooses delegated execution. Implement task-by-task. Steps use checkbox syntax for tracking.
 
+**状态：** 已完成（2026-10）。任务 5 中「Git 位于 client 内」等描述为执行当时的情况；2026-10-18 已按用户更正将 Git 根目录调整为 `PawValor/`，`docs/` 现已纳入同一仓库。
+
 **Goal:** 在现有 client 工程中交付可独立检查的战斗与成长接口、可校验的雷恩配置和能运行的最小启动场景。
 
 **Architecture:** 纯 TypeScript 核心不依赖引擎；Cocos 适配层负责启动与诊断呈现。配置保持数据形式，测试运行于 Node，项目仍以 Cocos Creator 为运行环境。
