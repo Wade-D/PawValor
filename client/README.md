@@ -1,6 +1,8 @@
 # PawValor 客户端：成长战斗试玩
 
-使用 **Cocos Creator 3.8.6** 打开此目录。Git根目录在上一级，当前分支 `codex/phase-3-growth-core`；第三阶段前三步已实现，未合并到master。
+> 本文描述 2026-10-19 第三阶段**原型**的现状，原型参数（1280×720 横屏、64像素/单位、12级封顶、固定等级节点、蓝圆“雷恩”等）不是正式规则。正式版规则与迁移清单见[局内开发阶段与验收计划](../docs/design/局内开发阶段与验收计划.md)第2节及[设计文档索引](../docs/design/README.md)。
+
+使用 **Cocos Creator 3.8.6** 打开此目录。Git根目录在上一级；第三阶段前三步已实现并合并到 `master`。
 
 ## 安装与检查
 
@@ -62,4 +64,4 @@ npx.cmd tsc --noEmit -p tsconfig.json --ignoreDeprecations 6.0 --skipLibCheck --
 
 真实触屏按钮、摇杆、多点触摸、微信设备及性能尚未验证。选择期间单独按移动键无效已在桌面复查；完整“持续按住跨面板关闭”和迟到旧按钮的原生UI时序未构造，旧令牌与跨局拒绝由核心测试覆盖。
 
-截图、控制台、引用报告、审查修复、裁定和剩余问题见[验收与审查](../docs/evidence/phase-3-growth-integration/验收与审查.md)。历史第一步287项、第二步338项及设计见[成长核心规格](../docs/superpowers/specs/2026-10-18-phase-3-growth-core-design.md)、[战斗效果规格](../docs/superpowers/specs/2026-10-18-phase-3-combat-effects-design.md)和[第二步证据](../docs/evidence/phase-3-combat-effects/)。
+原截图、控制台记录、审查报告（`docs/evidence/`）及第三阶段各步规格（`docs/superpowers/`）已删除；历史第一步287项、第二步338项测试数为当时记录。
